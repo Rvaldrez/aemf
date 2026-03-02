@@ -1,0 +1,2 @@
+<?php
+require_once 'conexao_bd.php';
