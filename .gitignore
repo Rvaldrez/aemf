@@ -1,0 +1,14 @@
+# Composer
+vendor/
+composer.lock
+
+# Configurações locais
+.env
+config.local.php
+
+# Logs
+*.log
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
