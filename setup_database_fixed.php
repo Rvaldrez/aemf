@@ -40,6 +40,8 @@ try {
         mes_referencia VARCHAR(7),
         documento_origem VARCHAR(255),
         hash_unico VARCHAR(64) UNIQUE,
+        beneficiario VARCHAR(255) DEFAULT NULL,
+        conciliado TINYINT(1) DEFAULT 0,
         observacoes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

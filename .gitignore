@@ -1,0 +1,11 @@
+# Arquivos temporários de upload
+uploads/
+temp/
+
+# Configurações locais
+.env
+*.local
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db

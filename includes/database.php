@@ -4,50 +4,52 @@
  * Arquivo: /public_html/includes/database.php
  */
 
-// Configurações do banco
-$db_config = [
-    'host' => 'localhost',
-    'dbname' => 'u999392040_aemfpar',
-    'username' => 'u999392040_aemfpar',
-    'password' => 'R_valdrez23',
-    'charset' => 'utf8mb4'
-];
+// Garantir que as constantes de configuração estejam disponíveis
+if (!defined('DB_HOST')) {
+    require_once __DIR__ . '/config.php';
+}
 
-// Variável global $pdo
+/**
+ * Classe Singleton para gerenciamento da conexão com o banco de dados
+ */
+class Database {
+    private static $instance = null;
+    private $connection = null;
+
+    private function __construct() {
+        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        $this->connection = new PDO($dsn, DB_USER, DB_PASS);
+        $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+    }
+
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    public function getConnection() {
+        return $this->connection;
+    }
+}
+
+// Variável global $pdo para compatibilidade com arquivos que usam $pdo diretamente
 $pdo = null;
 
 try {
-    // Criar conexão PDO
-    $dsn = "mysql:host={$db_config['host']};dbname={$db_config['dbname']};charset={$db_config['charset']}";
-    
-    $pdo = new PDO($dsn, $db_config['username'], $db_config['password']);
-    
-    // Configurar PDO para lançar exceções em caso de erro
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
-    // Usar arrays associativos por padrão
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    
-    // Desabilitar emulação de prepared statements
-    $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
-    
+    $pdo = Database::getInstance()->getConnection();
 } catch (PDOException $e) {
-    // Em produção, não expor detalhes do erro
     if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {
-        // Se estiver em uma API, retornar JSON
         header('Content-Type: application/json');
         die(json_encode([
             'success' => false,
             'error' => 'Erro de conexão com banco de dados'
         ]));
     } else {
-        // Erro genérico para páginas web
         die('Erro de conexão com banco de dados. Por favor, tente novamente.');
     }
-}
-
-// Verificar se a conexão foi estabelecida
-if (!$pdo instanceof PDO) {
-    die('Erro: Conexão PDO não estabelecida');
 }
 ?>

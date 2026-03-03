@@ -280,9 +280,9 @@
                 <div class="upload-zone extrato" id="extratoZone">
                     <i class="fas fa-cloud-upload-alt upload-icon"></i>
                     <div class="upload-title">Arraste o extrato aqui</div>
-                    <div class="upload-desc">ou clique para selecionar</div>
+                    <div class="upload-desc">Formato OFX (recomendado) ou PDF</div>
                     <button class="btn-select">Selecionar Extrato</button>
-                    <input type="file" id="extratoInput" accept=".pdf" style="display: none;">
+                    <input type="file" id="extratoInput" accept=".ofx,.pdf" style="display: none;">
                 </div>
                 <div class="file-list" id="extratoList"></div>
             </div>

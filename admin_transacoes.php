@@ -465,9 +465,9 @@
                 
                 <div style="margin-top: 20px;">
                     <div class="file-input-wrapper">
-                        <input type="file" id="extratoFile" class="file-input" accept=".pdf" onchange="handleFileSelect(event, 'extrato')">
+                        <input type="file" id="extratoFile" class="file-input" accept=".ofx,.pdf" onchange="handleFileSelect(event, 'extrato')">
                         <label for="extratoFile" class="file-input-label">
-                            <i class="fas fa-file-pdf"></i> Selecionar Extrato
+                            <i class="fas fa-file-invoice"></i> Selecionar Extrato (OFX)
                         </label>
                     </div>
                     
