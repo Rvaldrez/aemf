@@ -1,7 +1,7 @@
 <?php
 // includes/config.php
 
-define('DB_HOST', '193.203.175.155');
+define('DB_HOST', '127.0.0.1');
 define('DB_NAME', 'u999392040_aemfpar');
 define('DB_USER', 'u999392040_aemfpar');
 define('DB_PASS', 'R_valdrez23');
@@ -15,7 +15,8 @@ define('TEMP_PATH', dirname(__DIR__) . '/temp/');
 // Timezone
 date_default_timezone_set('America/Sao_Paulo');
 
-// Error reporting (desabilitar em produção)
+// Error reporting — erros são logados mas não exibidos em produção
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 ?>
