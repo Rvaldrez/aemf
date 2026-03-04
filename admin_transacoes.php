@@ -454,67 +454,22 @@
         <!-- Tab Importação -->
         <div id="tab-importacao" class="content-area">
             <h2><i class="fas fa-file-import"></i> Importação de Documentos</h2>
-            <p>Faça o upload de extratos e comprovantes para processamento automático</p>
-            
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">
-                    <i class="fas fa-cloud-upload-alt"></i>
+            <p>Use a interface de importação para fazer upload de extratos e comprovantes.</p>
+
+            <div style="margin-top: 30px; text-align: center;">
+                <div style="background: #f8f9fa; border: 2px dashed #17a2b8; border-radius: 10px; padding: 50px 30px; display: inline-block; max-width: 500px; width: 100%;">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 64px; color: #17a2b8; display: block; margin-bottom: 20px;"></i>
+                    <h3 style="color: #333; margin-bottom: 10px;">Importar Extratos e Comprovantes</h3>
+                    <p style="color: #666; margin-bottom: 25px;">
+                        Clique no botão abaixo para abrir a interface de importação de documentos financeiros.
+                    </p>
+                    <a href="upload_interface.php" class="btn btn-primary" style="font-size: 18px; padding: 15px 40px; border-radius: 30px; text-decoration: none; display: inline-block;">
+                        <i class="fas fa-file-upload"></i> Abrir Importador de Documentos
+                    </a>
+                    <p style="color: #999; font-size: 13px; margin-top: 20px;">
+                        Após importar, utilize a aba <strong>Categorizar</strong> para classificar as transações.
+                    </p>
                 </div>
-                <h3>Arraste os arquivos aqui</h3>
-                <p>ou clique para selecionar</p>
-                
-                <div style="margin-top: 20px;">
-                    <div class="file-input-wrapper">
-                        <input type="file" id="extratoFile" class="file-input" accept=".pdf" onchange="handleFileSelect(event, 'extrato')">
-                        <label for="extratoFile" class="file-input-label">
-                            <i class="fas fa-file-pdf"></i> Selecionar Extrato
-                        </label>
-                    </div>
-                    
-                    <div class="file-input-wrapper">
-                        <input type="file" id="comprovantesFile" class="file-input" accept=".pdf" multiple onchange="handleFileSelect(event, 'comprovantes')">
-                        <label for="comprovantesFile" class="file-input-label">
-                            <i class="fas fa-file-pdf"></i> Selecionar Comprovantes
-                        </label>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="selectedFiles" style="margin: 20px 0;"></div>
-            
-            <button class="btn btn-success" onclick="processDocuments()" style="display: none;" id="processButton">
-                <i class="fas fa-cog"></i> Processar Documentos
-            </button>
-            
-            <div class="progress-bar" style="display: none;" id="progressBar">
-                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
-            </div>
-            
-            <div class="process-steps" id="processSteps" style="display: none;">
-                <div class="step-card" id="step1">
-                    <h4><i class="fas fa-file-alt"></i> Leitura de PDFs</h4>
-                    <p>Extraindo dados dos documentos...</p>
-                </div>
-                <div class="step-card" id="step2">
-                    <h4><i class="fas fa-check-double"></i> Conciliação</h4>
-                    <p>Comparando extrato com comprovantes...</p>
-                </div>
-                <div class="step-card" id="step3">
-                    <h4><i class="fas fa-tags"></i> Classificação</h4>
-                    <p>Categorizando transações...</p>
-                </div>
-                <div class="step-card" id="step4">
-                    <h4><i class="fas fa-database"></i> Salvando</h4>
-                    <p>Armazenando no banco de dados...</p>
-                </div>
-            </div>
-            
-            <div class="results-container" id="results" style="display: none;">
-                <h3>Resultados do Processamento</h3>
-                <div id="resultsContent"></div>
-                <button class="btn btn-primary" onclick="showTab('categorizar')">
-                    <i class="fas fa-check-circle"></i> Categorizar Transações Importadas
-                </button>
             </div>
         </div>
         
@@ -771,10 +726,6 @@
     
     <script>
         let categorias = [];
-        let selectedFiles = {
-            extrato: null,
-            comprovantes: []
-        };
         let transacoesSemCategoria = [];
         
         function showTab(tab) {
@@ -789,129 +740,10 @@
             if (tab === 'categorizar') loadTransacoesSemCategoria();
         }
         
-        // Funções de importação
-        function handleFileSelect(event, type) {
-            const files = event.target.files;
-            
-            if (type === 'extrato') {
-                selectedFiles.extrato = files[0];
-            } else {
-                selectedFiles.comprovantes = Array.from(files);
-            }
-            
-            updateFileDisplay();
-        }
-        
-        function updateFileDisplay() {
-            const display = document.getElementById('selectedFiles');
-            let html = '';
-            
-            if (selectedFiles.extrato) {
-                html += `<div class="badge badge-success" style="margin: 5px;">
-                    <i class="fas fa-file-pdf"></i> Extrato: ${selectedFiles.extrato.name}
-                </div>`;
-            }
-            
-            selectedFiles.comprovantes.forEach(file => {
-                html += `<div class="badge badge-warning" style="margin: 5px;">
-                    <i class="fas fa-file-pdf"></i> ${file.name}
-                </div>`;
-            });
-            
-            display.innerHTML = html;
-            
-            const processButton = document.getElementById('processButton');
-            if (selectedFiles.extrato || selectedFiles.comprovantes.length > 0) {
-                processButton.style.display = 'inline-block';
-            } else {
-                processButton.style.display = 'none';
-            }
-        }
-        
-        // Drag and drop
-        const uploadArea = document.getElementById('uploadArea');
-        
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            
-            const files = Array.from(e.dataTransfer.files);
-            // Processar arquivos aqui
-        });
-        
-        async function processDocuments() {
-            if (!selectedFiles.extrato && selectedFiles.comprovantes.length === 0) {
-                alert('Selecione pelo menos um arquivo para processar');
-                return;
-            }
-            
-            const formData = new FormData();
-            
-            if (selectedFiles.extrato) {
-                formData.append('extrato', selectedFiles.extrato);
-            }
-            
-            selectedFiles.comprovantes.forEach(file => {
-                formData.append('comprovantes[]', file);
-            });
-            
-            document.getElementById('progressBar').style.display = 'block';
-            document.getElementById('processSteps').style.display = 'grid';
-            document.getElementById('results').style.display = 'none';
-            
-            updateProgress(25, 'step1', 'processing');
-            
-            try {
-                const response = await fetch('api/process_documents.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                updateProgress(50, 'step2', 'processing');
-                updateProgress(100, 'step1', 'complete');
-                
-                const result = await response.json();
-                
-                updateProgress(75, 'step3', 'processing');
-                updateProgress(100, 'step2', 'complete');
-                
-                setTimeout(() => {
-                    updateProgress(100, 'step3', 'complete');
-                    updateProgress(100, 'step4', 'complete');
-                    
-                    showResults(result);
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Erro:', error);
-                updateProgress(0, 'step1', 'error');
-                alert('Erro ao processar documentos');
-            }
-        }
-        
-        function updateProgress(percent, stepId = null, status = null) {
-            const progressFill = document.getElementById('progressFill');
-            progressFill.style.width = percent + '%';
-            progressFill.textContent = percent + '%';
-            
-            if (stepId && status) {
-                const step = document.getElementById(stepId);
-                step.className = 'step-card ' + status;
-            }
-        }
-        
         function showResults(result) {
             const resultsDiv = document.getElementById('results');
             const content = document.getElementById('resultsContent');
+            if (!resultsDiv || !content) return;
             
             let html = '<div class="alert alert-success">';
             html += '<h4>Processamento Concluído!</h4>';
@@ -988,11 +820,18 @@
                 });
         }
         
-        function getCategoriaOptions() {
+        function getCategoriaOptions(selectedId = null) {
             if (categorias.length === 0) {
                 loadCategorias(false);
             }
-            
+
+            if (categorias.length > 0) {
+                return categorias.map(cat =>
+                    `<option value="${cat.id}" ${cat.id == selectedId ? 'selected' : ''}>${cat.nome} (${cat.tipo})</option>`
+                ).join('');
+            }
+
+            // Fallback enquanto as categorias carregam
             const options = [
                 { value: 'folha_pagamento', label: 'Folha de Pagamento' },
                 { value: 'servicos_juridicos', label: 'Serviços Jurídicos' },
@@ -1005,8 +844,8 @@
                 { value: 'aporte_capital', label: 'Aporte de Capital' },
                 { value: 'receita_servicos', label: 'Receita de Serviços' }
             ];
-            
-            return options.map(opt => 
+
+            return options.map(opt =>
                 `<option value="${opt.value}">${opt.label}</option>`
             ).join('');
         }
@@ -1106,6 +945,12 @@
                 style: 'currency',
                 currency: 'BRL'
             }).format(value);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text ?? ''));
+            return div.innerHTML;
         }
         
         // Função para carregar categorias
@@ -1344,6 +1189,85 @@
             });
         });
         
+        // Funções da aba Reclassificar
+        function loadTransacoes() {
+            const mes = document.getElementById('filterMonth').value;
+            fetch(`api/admin_api.php?action=getTransacoes&mes=${mes}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('transacoesBody');
+                    if (!Array.isArray(data) || data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Nenhuma transação encontrada para o período</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = data.map(t => `
+                        <tr data-id="${escapeHtml(String(t.id))}">
+                            <td><input type="checkbox" class="select-reclass" data-id="${escapeHtml(String(t.id))}"></td>
+                            <td>${formatDate(t.data)}</td>
+                            <td>${escapeHtml(t.descricao)}</td>
+                            <td class="${t.tipo === 'credito' ? 'valor-positivo' : 'valor-negativo'}">
+                                ${formatCurrency(t.valor)}
+                            </td>
+                            <td>${t.categoria_nome ? escapeHtml(t.categoria_nome) : '<em>Sem categoria</em>'}</td>
+                            <td>
+                                <select class="categoria-select" id="reclass-${escapeHtml(String(t.id))}">
+                                    <option value="">Manter atual</option>
+                                    ${getCategoriaOptions(t.categoria_id)}
+                                </select>
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar transações:', error);
+                    document.getElementById('transacoesBody').innerHTML =
+                        '<tr><td colspan="6">Erro ao carregar transações</td></tr>';
+                });
+        }
+
+        function toggleSelectAllReclass() {
+            const selectAll = document.getElementById('selectAllReclass');
+            document.querySelectorAll('.select-reclass').forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+        }
+
+        function aplicarReclassificacao() {
+            const checked = document.querySelectorAll('.select-reclass:checked');
+            if (checked.length === 0) {
+                alert('Selecione pelo menos uma transação');
+                return;
+            }
+
+            const promises = [];
+            checked.forEach(cb => {
+                const id = cb.dataset.id;
+                const select = document.getElementById(`reclass-${id}`);
+                if (select && select.value) {
+                    const formData = new FormData();
+                    formData.append('transacao_id', id);
+                    formData.append('categoria', select.value);
+                    promises.push(
+                        fetch('api/admin_api.php?action=categorizarTransacao', { method: 'POST', body: formData })
+                    );
+                }
+            });
+
+            if (promises.length === 0) {
+                alert('Nenhuma nova categoria selecionada');
+                return;
+            }
+
+            Promise.all(promises)
+                .then(() => {
+                    alert(`${promises.length} transações reclassificadas com sucesso!`);
+                    loadTransacoes();
+                })
+                .catch(error => {
+                    alert('Erro ao reclassificar: ' + error.message);
+                });
+        }
+
         // Load initial data
         document.addEventListener('DOMContentLoaded', function() {
             // Carregar categorias para os selects
