@@ -110,10 +110,13 @@ function processExtrato(PDO $pdo, array $fileInfo): array
     $origName = $fileInfo['name'];
     $ext      = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
 
-    $transacoes = [];
+    $transacoes  = [];
+    $ledgerBal   = null;
 
     if ($ext === 'ofx') {
-        $transacoes = parseOFX(file_get_contents($tmpPath));
+        $content     = file_get_contents($tmpPath);
+        $transacoes  = parseOFX($content);
+        $ledgerBal   = extractOFXLedgerBal($content);
     } else {
         // Tenta parsear como PDF
         $transacoes = parsePDFItau($tmpPath);
@@ -156,13 +159,102 @@ function processExtrato(PDO $pdo, array $fileInfo): array
         }
     }
 
-    return [
+    // Salvar LEDGERBAL do OFX como referência (não sobrescreve saldo manual)
+    if ($ledgerBal !== null) {
+        saveLedgerBal($pdo, $ledgerBal);
+    }
+
+    $result = [
         'success'    => true,
         'imported'   => $imported,
         'duplicates' => $duplicates,
         'total'      => count($transacoes),
         'errors'     => $errors,
     ];
+
+    if ($ledgerBal !== null) {
+        $result['ledger_bal'] = $ledgerBal;
+    }
+
+    return $result;
+}
+
+/**
+ * Extrai LEDGERBAL (saldo da conta) do conteúdo OFX.
+ * Retorna ['balamt' => float, 'dtasof' => 'YYYY-MM-DD', 'mes_referencia' => 'YYYY-MM'] ou null.
+ */
+function extractOFXLedgerBal(string $content): ?array
+{
+    // Extrai BALAMT
+    if (!preg_match('/<BALAMT>\s*([-\d.]+)/i', $content, $mAmt)) {
+        return null;
+    }
+    $balAmt = (float)$mAmt[1];
+
+    // Extrai DTASOF (data de referência do saldo)
+    $dtAsof = null;
+    if (preg_match('/<DTASOF>\s*(\d{8})/i', $content, $mDt)) {
+        $raw    = $mDt[1];
+        $dtAsof = substr($raw, 0, 4) . '-' . substr($raw, 4, 2) . '-' . substr($raw, 6, 2);
+    }
+
+    // Determina o mês de referência da data do extrato (DTSTART do OFX)
+    $mesRef = null;
+    if (preg_match('/<DTSTART>\s*(\d{6})/i', $content, $mStart)) {
+        $mesRef = substr($mStart[1], 0, 4) . '-' . substr($mStart[1], 4, 2);
+    } elseif ($dtAsof) {
+        $mesRef = substr($dtAsof, 0, 7);
+    }
+
+    return [
+        'balamt'         => $balAmt,
+        'dtasof'         => $dtAsof,
+        'mes_referencia' => $mesRef,
+    ];
+}
+
+/**
+ * Salva o LEDGERBAL na tabela saldo_inicial (cria tabela se necessário).
+ * Não sobrescreve um saldo do tipo 'manual'.
+ */
+function saveLedgerBal(PDO $pdo, array $ledger): void
+{
+    if ($ledger['mes_referencia'] === null) {
+        return;
+    }
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS saldo_inicial (
+                id              INT AUTO_INCREMENT PRIMARY KEY,
+                mes_referencia  VARCHAR(7)     NOT NULL,
+                saldo           DECIMAL(15,2)  NOT NULL DEFAULT 0,
+                tipo            ENUM('manual','ledgerbal','calculado') NOT NULL DEFAULT 'manual',
+                data_referencia DATE           NULL,
+                observacoes     VARCHAR(255)   NULL,
+                created_at      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+                updated_at      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uk_mes_tipo (mes_referencia, tipo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $stmt = $pdo->prepare("
+            INSERT INTO saldo_inicial (mes_referencia, saldo, tipo, data_referencia, observacoes)
+            VALUES (:mes, :saldo, 'ledgerbal', :dt, 'Importado automaticamente do OFX')
+            ON DUPLICATE KEY UPDATE
+                saldo           = VALUES(saldo),
+                data_referencia = VALUES(data_referencia),
+                updated_at      = NOW()
+        ");
+        $stmt->execute([
+            ':mes'   => $ledger['mes_referencia'],
+            ':saldo' => $ledger['balamt'],
+            ':dt'    => $ledger['dtasof'],
+        ]);
+    } catch (Exception $e) {
+        // Salvar o LEDGERBAL é informativo; registra o erro sem interromper o processamento
+        error_log('saveLedgerBal: ' . $e->getMessage());
+    }
 }
 
 /**
