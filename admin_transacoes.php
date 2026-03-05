@@ -431,20 +431,17 @@
             <button class="tab active" onclick="showTab('importacao')">
                 <i class="fas fa-file-upload"></i> Importação
             </button>
-            <button class="tab" onclick="showTab('categorizar')">
-                <i class="fas fa-check-circle"></i> Categorizar
-            </button>
-            <button class="tab" onclick="showTab('categorias')">
-                <i class="fas fa-tags"></i> Categorias
-            </button>
             <button class="tab" onclick="showTab('referencias')">
                 <i class="fas fa-robot"></i> Padrões
             </button>
             <button class="tab" onclick="showTab('reclassificar')">
                 <i class="fas fa-sync"></i> Reclassificar
             </button>
-            <button class="tab" onclick="window.location.href='admin_transacoes.php'">
-                <i class="fas fa-list"></i> Todas Transações
+            <button class="tab" onclick="showTab('categorias')">
+                <i class="fas fa-tags"></i> Categorias
+            </button>
+            <button class="tab" onclick="showTab('saldo')">
+                <i class="fas fa-balance-scale"></i> Saldo Inicial
             </button>
             <button class="tab" onclick="window.location.href='index.php'">
                 <i class="fas fa-chart-line"></i> Dashboard
@@ -454,125 +451,35 @@
         <!-- Tab Importação -->
         <div id="tab-importacao" class="content-area">
             <h2><i class="fas fa-file-import"></i> Importação de Documentos</h2>
-            <p>Faça o upload de extratos e comprovantes para processamento automático</p>
-            
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                </div>
-                <h3>Arraste os arquivos aqui</h3>
-                <p>ou clique para selecionar</p>
-                
-                <div style="margin-top: 20px;">
-                    <div class="file-input-wrapper">
-                        <input type="file" id="extratoFile" class="file-input" accept=".pdf" onchange="handleFileSelect(event, 'extrato')">
-                        <label for="extratoFile" class="file-input-label">
-                            <i class="fas fa-file-pdf"></i> Selecionar Extrato
-                        </label>
-                    </div>
-                    
-                    <div class="file-input-wrapper">
-                        <input type="file" id="comprovantesFile" class="file-input" accept=".pdf" multiple onchange="handleFileSelect(event, 'comprovantes')">
-                        <label for="comprovantesFile" class="file-input-label">
-                            <i class="fas fa-file-pdf"></i> Selecionar Comprovantes
-                        </label>
-                    </div>
+            <p>Use a interface de importação para fazer upload de extratos e comprovantes.</p>
+
+            <div style="margin-top: 30px; text-align: center;">
+                <div style="background: #f8f9fa; border: 2px dashed #17a2b8; border-radius: 10px; padding: 50px 30px; display: inline-block; max-width: 500px; width: 100%;">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 64px; color: #17a2b8; display: block; margin-bottom: 20px;"></i>
+                    <h3 style="color: #333; margin-bottom: 10px;">Importar Extratos e Comprovantes</h3>
+                    <p style="color: #666; margin-bottom: 25px;">
+                        Clique no botão abaixo para abrir a interface de importação de documentos financeiros.
+                        Após a importação, o sistema classifica automaticamente as transações usando os Padrões cadastrados.
+                    </p>
+                    <a href="upload_interface.php" class="btn btn-primary" style="font-size: 18px; padding: 15px 40px; border-radius: 30px; text-decoration: none; display: inline-block;">
+                        <i class="fas fa-file-upload"></i> Abrir Importador de Documentos
+                    </a>
+                    <p style="color: #999; font-size: 13px; margin-top: 20px;">
+                        Transações não classificadas automaticamente ficam disponíveis na aba <strong>Reclassificar</strong>.
+                    </p>
                 </div>
             </div>
-            
-            <div id="selectedFiles" style="margin: 20px 0;"></div>
-            
-            <button class="btn btn-success" onclick="processDocuments()" style="display: none;" id="processButton">
-                <i class="fas fa-cog"></i> Processar Documentos
-            </button>
-            
-            <div class="progress-bar" style="display: none;" id="progressBar">
-                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
-            </div>
-            
-            <div class="process-steps" id="processSteps" style="display: none;">
-                <div class="step-card" id="step1">
-                    <h4><i class="fas fa-file-alt"></i> Leitura de PDFs</h4>
-                    <p>Extraindo dados dos documentos...</p>
-                </div>
-                <div class="step-card" id="step2">
-                    <h4><i class="fas fa-check-double"></i> Conciliação</h4>
-                    <p>Comparando extrato com comprovantes...</p>
-                </div>
-                <div class="step-card" id="step3">
-                    <h4><i class="fas fa-tags"></i> Classificação</h4>
-                    <p>Categorizando transações...</p>
-                </div>
-                <div class="step-card" id="step4">
-                    <h4><i class="fas fa-database"></i> Salvando</h4>
-                    <p>Armazenando no banco de dados...</p>
-                </div>
-            </div>
-            
-            <div class="results-container" id="results" style="display: none;">
-                <h3>Resultados do Processamento</h3>
-                <div id="resultsContent"></div>
-                <button class="btn btn-primary" onclick="showTab('categorizar')">
-                    <i class="fas fa-check-circle"></i> Categorizar Transações Importadas
+
+            <div style="margin-top: 30px; text-align: center;">
+                <hr style="margin-bottom: 25px;">
+                <h3 style="margin-bottom: 10px;">Classificação Automática</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                    Aplica as regras da tabela <strong>Padrões</strong> a todas as transações ainda sem classificação.
+                </p>
+                <button class="btn btn-primary" onclick="aplicarRegrasAutomaticas()" id="btnAutoClassify">
+                    <i class="fas fa-magic"></i> Aplicar Regras Automáticas
                 </button>
-            </div>
-        </div>
-        
-        <!-- Tab Categorizar Transações -->
-        <div id="tab-categorizar" class="content-area" style="display: none;">
-            <div class="actions-header">
-                <h2>Transações Sem Categoria</h2>
-                <div class="bulk-actions">
-                    <span class="selected-count" id="selectedCount">0 selecionadas</span>
-                    <button class="btn btn-primary btn-sm" onclick="categorizarSelecionadas()">
-                        Categorizar Selecionadas
-                    </button>
-                </div>
-            </div>
-            
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="stat-label">Total sem categoria</div>
-                    <div class="stat-value" id="statSemCategoria">0</div>
-                    <div class="stat-detail">Necessitam classificação</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Valor total</div>
-                    <div class="stat-value" id="statValorTotal">R$ 0</div>
-                    <div class="stat-detail">Em transações pendentes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Conciliadas</div>
-                    <div class="stat-value" id="statConciliadas">0</div>
-                    <div class="stat-detail">Com comprovantes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Taxa de conclusão</div>
-                    <div class="stat-value" id="statTaxa">0%</div>
-                    <div class="stat-detail">Do período atual</div>
-                </div>
-            </div>
-            
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="checkbox-cell">
-                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                            </th>
-                            <th>Data</th>
-                            <th>Descrição</th>
-                            <th>Beneficiário</th>
-                            <th>Valor</th>
-                            <th>Status</th>
-                            <th>Categoria</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transacoesSemCategoria">
-                        <!-- Será preenchido via JS -->
-                    </tbody>
-                </table>
+                <div id="autoClassifyResult" style="margin-top:15px;"></div>
             </div>
         </div>
         
@@ -637,7 +544,7 @@
             
             <div style="margin: 20px 0; display: flex; gap: 10px; align-items: center;">
                 <label>Filtrar por período:</label>
-                <input type="month" id="filterMonth" value="2025-09">
+                <input type="month" id="filterMonth" value="<?= date('Y-m') ?>">
                 <button class="btn btn-primary" onclick="loadTransacoes()">
                     <i class="fas fa-search"></i> Buscar
                 </button>
@@ -665,8 +572,73 @@
                 </button>
             </div>
         </div>
+
+        <!-- Tab Saldo Inicial -->
+        <div id="tab-saldo" class="content-area" style="display: none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2><i class="fas fa-balance-scale" style="color:#17a2b8;margin-right:8px;"></i>Saldo Inicial por Período</h2>
+                <button class="btn btn-primary" onclick="openModalSaldo()">
+                    <i class="fas fa-plus"></i> Novo Saldo Inicial
+                </button>
+            </div>
+            <p style="color:#666;margin-bottom:20px;">
+                Informe o saldo bancário no <strong>último dia do mês anterior</strong> para que o Dashboard calcule corretamente o Fluxo de Caixa.
+            </p>
+
+            <table id="saldoInicialTable">
+                <thead>
+                    <tr>
+                        <th>Mês de Referência</th>
+                        <th>Data de Referência</th>
+                        <th>Saldo (R$)</th>
+                        <th>Tipo</th>
+                        <th>Observações</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="saldoInicialBody">
+                    <!-- preenchido via JS -->
+                </tbody>
+            </table>
+        </div>
     </div>
-    
+
+    <!-- Modal Saldo Inicial -->
+    <div id="modalSaldo" class="modal">
+        <div class="modal-content">
+            <h3 id="modalSaldoTitle">Novo Saldo Inicial</h3>
+            <form id="formSaldo" onsubmit="submitSaldo(event)">
+                <input type="hidden" id="saldoId">
+                <div class="form-group">
+                    <label>Mês de Referência (YYYY-MM):</label>
+                    <input type="month" id="saldoMes" required
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    <small style="color:#666;">Exemplo: 2026-01 para indicar o saldo de abertura de Janeiro/2026</small>
+                </div>
+                <div class="form-group">
+                    <label>Data de Referência (data exata do saldo):</label>
+                    <input type="date" id="saldoDataRef"
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    <small style="color:#666;">Geralmente o último dia do mês anterior (ex.: 31/12/2025 para Janeiro/2026)</small>
+                </div>
+                <div class="form-group">
+                    <label>Saldo (R$):</label>
+                    <input type="number" id="saldoValor" step="0.01" required placeholder="Ex: 12345.67"
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div class="form-group">
+                    <label>Observações (opcional):</label>
+                    <input type="text" id="saldoObs" placeholder="Ex: Extrato Itaú Dez/2025"
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button type="submit" class="btn btn-success">Salvar</button>
+                    <button type="button" class="btn btn-danger" onclick="closeModal('Saldo')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modais -->
     <div id="modalCategoria" class="modal">
         <div class="modal-content">
@@ -771,10 +743,6 @@
     
     <script>
         let categorias = [];
-        let selectedFiles = {
-            extrato: null,
-            comprovantes: []
-        };
         let transacoesSemCategoria = [];
         
         function showTab(tab) {
@@ -784,134 +752,15 @@
             event.target.classList.add('active');
             document.getElementById(`tab-${tab}`).style.display = 'block';
             
-            if (tab === 'categorias') loadCategorias();
+            if (tab === 'categorias')  loadCategorias();
             if (tab === 'referencias') loadReferencias();
-            if (tab === 'categorizar') loadTransacoesSemCategoria();
-        }
-        
-        // Funções de importação
-        function handleFileSelect(event, type) {
-            const files = event.target.files;
-            
-            if (type === 'extrato') {
-                selectedFiles.extrato = files[0];
-            } else {
-                selectedFiles.comprovantes = Array.from(files);
-            }
-            
-            updateFileDisplay();
-        }
-        
-        function updateFileDisplay() {
-            const display = document.getElementById('selectedFiles');
-            let html = '';
-            
-            if (selectedFiles.extrato) {
-                html += `<div class="badge badge-success" style="margin: 5px;">
-                    <i class="fas fa-file-pdf"></i> Extrato: ${selectedFiles.extrato.name}
-                </div>`;
-            }
-            
-            selectedFiles.comprovantes.forEach(file => {
-                html += `<div class="badge badge-warning" style="margin: 5px;">
-                    <i class="fas fa-file-pdf"></i> ${file.name}
-                </div>`;
-            });
-            
-            display.innerHTML = html;
-            
-            const processButton = document.getElementById('processButton');
-            if (selectedFiles.extrato || selectedFiles.comprovantes.length > 0) {
-                processButton.style.display = 'inline-block';
-            } else {
-                processButton.style.display = 'none';
-            }
-        }
-        
-        // Drag and drop
-        const uploadArea = document.getElementById('uploadArea');
-        
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            
-            const files = Array.from(e.dataTransfer.files);
-            // Processar arquivos aqui
-        });
-        
-        async function processDocuments() {
-            if (!selectedFiles.extrato && selectedFiles.comprovantes.length === 0) {
-                alert('Selecione pelo menos um arquivo para processar');
-                return;
-            }
-            
-            const formData = new FormData();
-            
-            if (selectedFiles.extrato) {
-                formData.append('extrato', selectedFiles.extrato);
-            }
-            
-            selectedFiles.comprovantes.forEach(file => {
-                formData.append('comprovantes[]', file);
-            });
-            
-            document.getElementById('progressBar').style.display = 'block';
-            document.getElementById('processSteps').style.display = 'grid';
-            document.getElementById('results').style.display = 'none';
-            
-            updateProgress(25, 'step1', 'processing');
-            
-            try {
-                const response = await fetch('api/process_documents.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                updateProgress(50, 'step2', 'processing');
-                updateProgress(100, 'step1', 'complete');
-                
-                const result = await response.json();
-                
-                updateProgress(75, 'step3', 'processing');
-                updateProgress(100, 'step2', 'complete');
-                
-                setTimeout(() => {
-                    updateProgress(100, 'step3', 'complete');
-                    updateProgress(100, 'step4', 'complete');
-                    
-                    showResults(result);
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Erro:', error);
-                updateProgress(0, 'step1', 'error');
-                alert('Erro ao processar documentos');
-            }
-        }
-        
-        function updateProgress(percent, stepId = null, status = null) {
-            const progressFill = document.getElementById('progressFill');
-            progressFill.style.width = percent + '%';
-            progressFill.textContent = percent + '%';
-            
-            if (stepId && status) {
-                const step = document.getElementById(stepId);
-                step.className = 'step-card ' + status;
-            }
+            if (tab === 'saldo')       loadSaldoInicial();
         }
         
         function showResults(result) {
             const resultsDiv = document.getElementById('results');
             const content = document.getElementById('resultsContent');
+            if (!resultsDiv || !content) return;
             
             let html = '<div class="alert alert-success">';
             html += '<h4>Processamento Concluído!</h4>';
@@ -988,11 +837,18 @@
                 });
         }
         
-        function getCategoriaOptions() {
+        function getCategoriaOptions(selectedId = null) {
             if (categorias.length === 0) {
                 loadCategorias(false);
             }
-            
+
+            if (categorias.length > 0) {
+                return categorias.map(cat =>
+                    `<option value="${cat.id}" ${cat.id == selectedId ? 'selected' : ''}>${cat.nome} (${cat.tipo})</option>`
+                ).join('');
+            }
+
+            // Fallback enquanto as categorias carregam
             const options = [
                 { value: 'folha_pagamento', label: 'Folha de Pagamento' },
                 { value: 'servicos_juridicos', label: 'Serviços Jurídicos' },
@@ -1005,8 +861,8 @@
                 { value: 'aporte_capital', label: 'Aporte de Capital' },
                 { value: 'receita_servicos', label: 'Receita de Serviços' }
             ];
-            
-            return options.map(opt => 
+
+            return options.map(opt =>
                 `<option value="${opt.value}">${opt.label}</option>`
             ).join('');
         }
@@ -1106,6 +962,12 @@
                 style: 'currency',
                 currency: 'BRL'
             }).format(value);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text ?? ''));
+            return div.innerHTML;
         }
         
         // Função para carregar categorias
@@ -1344,10 +1206,233 @@
             });
         });
         
+        // Funções da aba Reclassificar
+        function loadTransacoes() {
+            const mes = document.getElementById('filterMonth').value;
+            fetch(`api/admin_api.php?action=getTransacoes&mes=${mes}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('transacoesBody');
+                    if (!Array.isArray(data) || data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Nenhuma transação encontrada para o período</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = data.map(t => `
+                        <tr data-id="${escapeHtml(String(t.id))}">
+                            <td><input type="checkbox" class="select-reclass" data-id="${escapeHtml(String(t.id))}"></td>
+                            <td>${formatDate(t.data)}</td>
+                            <td>${escapeHtml(t.descricao)}</td>
+                            <td class="${t.tipo === 'credito' ? 'valor-positivo' : 'valor-negativo'}">
+                                ${formatCurrency(t.valor)}
+                            </td>
+                            <td>${t.categoria_nome ? escapeHtml(t.categoria_nome) : '<em>Sem categoria</em>'}</td>
+                            <td>
+                                <select class="categoria-select" id="reclass-${escapeHtml(String(t.id))}">
+                                    <option value="">Manter atual</option>
+                                    ${getCategoriaOptions(t.categoria_id)}
+                                </select>
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar transações:', error);
+                    document.getElementById('transacoesBody').innerHTML =
+                        '<tr><td colspan="6">Erro ao carregar transações</td></tr>';
+                });
+        }
+
+        function toggleSelectAllReclass() {
+            const selectAll = document.getElementById('selectAllReclass');
+            document.querySelectorAll('.select-reclass').forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+        }
+
+        function aplicarReclassificacao() {
+            const checked = document.querySelectorAll('.select-reclass:checked');
+            if (checked.length === 0) {
+                alert('Selecione pelo menos uma transação');
+                return;
+            }
+
+            const promises = [];
+            checked.forEach(cb => {
+                const id = cb.dataset.id;
+                const select = document.getElementById(`reclass-${id}`);
+                if (select && select.value) {
+                    const formData = new FormData();
+                    formData.append('transacao_id', id);
+                    formData.append('categoria', select.value);
+                    promises.push(
+                        fetch('api/admin_api.php?action=categorizarTransacao', { method: 'POST', body: formData })
+                    );
+                }
+            });
+
+            if (promises.length === 0) {
+                alert('Nenhuma nova categoria selecionada');
+                return;
+            }
+
+            Promise.all(promises)
+                .then(() => {
+                    alert(`${promises.length} transações reclassificadas com sucesso!`);
+                    loadTransacoes();
+                })
+                .catch(error => {
+                    alert('Erro ao reclassificar: ' + error.message);
+                });
+        }
+
+        // ── Aplicar Regras Automáticas ───────────────────────────────────────
+        function aplicarRegrasAutomaticas() {
+            const btn = document.getElementById('btnAutoClassify');
+            const resultEl = document.getElementById('autoClassifyResult');
+            if (btn) btn.disabled = true;
+            if (resultEl) resultEl.innerHTML = '<em>Processando...</em>';
+
+            fetch('api/admin_api.php?action=aplicarRegrasAutomaticas')
+                .then(r => r.json())
+                .then(data => {
+                    if (btn) btn.disabled = false;
+                    if (data.success && resultEl) {
+                        const s = data.stats || {};
+                        resultEl.innerHTML = `<div style="background:#d4edda;color:#155724;padding:12px;border-radius:6px;margin-top:10px;">
+                            <strong>✔ Concluído!</strong><br>
+                            Transações analisadas: ${s.transacoes_analisadas || 0}<br>
+                            Classificadas automaticamente: ${s.transacoes_classificadas || 0}
+                        </div>`;
+                    } else if (resultEl) {
+                        resultEl.innerHTML = `<div style="background:#f8d7da;color:#721c24;padding:12px;border-radius:6px;margin-top:10px;">
+                            Erro: ${escapeHtml(data.error || 'Falha desconhecida')}
+                        </div>`;
+                    }
+                })
+                .catch(err => {
+                    if (btn) btn.disabled = false;
+                    if (resultEl) resultEl.innerHTML = `<div style="color:red;">Erro de comunicação: ${err.message}</div>`;
+                });
+        }
+
+        // ── Saldo Inicial ─────────────────────────────────────────────────────
+        function loadSaldoInicial() {
+            fetch('api/admin_api.php?action=getSaldoInicial')
+                .then(r => r.json())
+                .then(res => {
+                    const tbody = document.getElementById('saldoInicialBody');
+                    if (!res.success || !res.data.length) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6c757d;padding:20px;">Nenhum saldo inicial cadastrado.</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = res.data.map(s => {
+                        const editBtn = s.tipo === 'manual'
+                            ? `<button class="btn btn-warning btn-sm" data-action="edit-saldo"
+                                    data-id="${s.id}"
+                                    data-mes="${escapeHtml(s.mes_referencia)}"
+                                    data-dtref="${s.data_referencia || ''}"
+                                    data-saldo="${s.saldo}"
+                                    data-obs="${escapeHtml(s.observacoes || '')}">
+                                   <i class="fas fa-edit"></i>
+                               </button>
+                               <button class="btn btn-danger btn-sm" data-action="delete-saldo" data-id="${s.id}">
+                                   <i class="fas fa-trash"></i>
+                               </button>`
+                            : '—';
+                        return `<tr>
+                            <td><strong>${escapeHtml(s.mes_referencia)}</strong></td>
+                            <td>${s.data_referencia ? formatDate(s.data_referencia) : '—'}</td>
+                            <td>${formatCurrency(s.saldo)}</td>
+                            <td><span class="badge badge-${s.tipo === 'manual' ? 'success' : 'secondary'}">${s.tipo}</span></td>
+                            <td>${escapeHtml(s.observacoes || '—')}</td>
+                            <td>${editBtn}</td>
+                        </tr>`;
+                    }).join('');
+
+                    // Attach click handlers after rendering
+                    tbody.querySelectorAll('[data-action="edit-saldo"]').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            openModalSaldo(
+                                btn.dataset.id,
+                                btn.dataset.mes,
+                                btn.dataset.dtref,
+                                btn.dataset.saldo,
+                                btn.dataset.obs
+                            );
+                        });
+                    });
+                    tbody.querySelectorAll('[data-action="delete-saldo"]').forEach(btn => {
+                        btn.addEventListener('click', () => deleteSaldo(btn.dataset.id));
+                    });
+                })
+                .catch(() => {
+                    document.getElementById('saldoInicialBody').innerHTML =
+                        '<tr><td colspan="6" style="color:red;text-align:center;padding:20px;">Erro ao carregar dados.</td></tr>';
+                });
+        }
+
+        function openModalSaldo(id = null, mes = '', dtRef = '', saldo = '', obs = '') {
+            document.getElementById('saldoId').value = id || '';
+            document.getElementById('saldoMes').value = mes;
+            document.getElementById('saldoDataRef').value = dtRef;
+            document.getElementById('saldoValor').value = saldo;
+            document.getElementById('saldoObs').value = obs;
+            document.getElementById('modalSaldoTitle').textContent = id ? 'Editar Saldo Inicial' : 'Novo Saldo Inicial';
+            document.getElementById('modalSaldo').classList.add('active');
+        }
+
+        function submitSaldo(e) {
+            e.preventDefault();
+            const body = new URLSearchParams({
+                mes_referencia:  document.getElementById('saldoMes').value,
+                data_referencia: document.getElementById('saldoDataRef').value,
+                saldo:           document.getElementById('saldoValor').value,
+                observacoes:     document.getElementById('saldoObs').value,
+            });
+            fetch('api/admin_api.php?action=saveSaldoInicial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal('Saldo');
+                    loadSaldoInicial();
+                    alert('Saldo inicial salvo com sucesso!');
+                } else {
+                    alert('Erro: ' + (data.error || 'Falha ao salvar.'));
+                }
+            })
+            .catch(() => alert('Erro de comunicação com o servidor.'));
+        }
+
+        function deleteSaldo(id) {
+            if (!confirm('Excluir este saldo inicial?')) return;
+            fetch(`api/admin_api.php?action=deleteSaldoInicial&id=${id}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        loadSaldoInicial();
+                        alert('Saldo excluído.');
+                    } else {
+                        alert('Erro ao excluir.');
+                    }
+                });
+        }
+
         // Load initial data
         document.addEventListener('DOMContentLoaded', function() {
             // Carregar categorias para os selects
             loadCategorias(false);
+
+            // Abrir aba solicitada via query string ?tab=saldo
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            if (tab) {
+                const tabBtn = document.querySelector(`.tab[onclick*="'${tab}'"]`);
+                if (tabBtn) tabBtn.click();
+            }
         });
     </script>
 </body>

@@ -280,9 +280,9 @@
                 <div class="upload-zone extrato" id="extratoZone">
                     <i class="fas fa-cloud-upload-alt upload-icon"></i>
                     <div class="upload-title">Arraste o extrato aqui</div>
-                    <div class="upload-desc">ou clique para selecionar</div>
+                    <div class="upload-desc">Formatos aceitos: <strong>PDF</strong> ou <strong>OFX</strong></div>
                     <button class="btn-select">Selecionar Extrato</button>
-                    <input type="file" id="extratoInput" accept=".pdf" style="display: none;">
+                    <input type="file" id="extratoInput" accept=".pdf,.ofx" style="display: none;">
                 </div>
                 <div class="file-list" id="extratoList"></div>
             </div>
@@ -380,11 +380,15 @@
             list.innerHTML = '';
             
             files.forEach((file, index) => {
+                const isOFX = file.name.toLowerCase().endsWith('.ofx');
+                const icon = isOFX
+                    ? '<i class="fas fa-file-alt" style="color: #17a2b8; margin-right: 10px;"></i>'
+                    : '<i class="fas fa-file-pdf" style="color: #dc3545; margin-right: 10px;"></i>';
                 const item = document.createElement('div');
                 item.className = 'file-item';
                 item.innerHTML = `
                     <span class="name">
-                        <i class="fas fa-file-pdf" style="color: #dc3545; margin-right: 10px;"></i>
+                        ${icon}
                         ${file.name}
                     </span>
                     <span class="size">${formatFileSize(file.size)}</span>
