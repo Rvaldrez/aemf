@@ -65,6 +65,9 @@ try {
         case 'setSaldoInicial':
             setSaldoInicial($pdo, $_POST);
             break;
+        case 'expensesGrouped':
+            getExpensesGrouped($pdo);
+            break;
         default:
             echo json_encode(['success' => false, 'error' => 'Ação desconhecida: ' . htmlspecialchars($action)]);
     }
@@ -330,4 +333,60 @@ function formatMonthPt(string $ym): string
     }
     [$year, $month] = $parts;
     return ($names[$month] ?? $month) . ' ' . $year;
+}
+
+/**
+ * Retorna despesas agrupadas por categoria (AEMF e PF) para o mês informado.
+ */
+function getExpensesGrouped(PDO $pdo): void
+{
+    $mes = $_GET['month'] ?? $_GET['mes'] ?? '';
+    $mes = validateMonth($mes);
+
+    $stmtAemf = $pdo->prepare("
+        SELECT  c.nome, c.cor, SUM(t.valor) AS total
+        FROM    transacoes t
+        JOIN    categorias c ON t.categoria_id = c.id
+        WHERE   t.mes_referencia = :mes
+          AND   t.tipo = 'debito'
+          AND   c.tipo = 'despesa_aemf'
+        GROUP BY c.id, c.nome, c.cor
+        ORDER BY total DESC
+    ");
+    $stmtAemf->execute([':mes' => $mes]);
+    $despesasAemf = $stmtAemf->fetchAll();
+
+    $stmtPf = $pdo->prepare("
+        SELECT  c.nome, c.cor, SUM(t.valor) AS total
+        FROM    transacoes t
+        JOIN    categorias c ON t.categoria_id = c.id
+        WHERE   t.mes_referencia = :mes
+          AND   t.tipo = 'debito'
+          AND   c.tipo = 'despesa_pf'
+        GROUP BY c.id, c.nome, c.cor
+        ORDER BY total DESC
+    ");
+    $stmtPf->execute([':mes' => $mes]);
+    $despesasPf = $stmtPf->fetchAll();
+
+    $stmtSem = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, COALESCE(SUM(valor),0) AS total
+        FROM   transacoes
+        WHERE  mes_referencia = :mes AND tipo = 'debito' AND categoria_id IS NULL
+    ");
+    $stmtSem->execute([':mes' => $mes]);
+    $semCategoria = $stmtSem->fetch();
+
+    $totalAemf = array_sum(array_column($despesasAemf, 'total'));
+    $totalPf   = array_sum(array_column($despesasPf,   'total'));
+
+    echo json_encode([
+        'success'       => true,
+        'month'         => $mes,
+        'despesas_aemf' => $despesasAemf,
+        'despesas_pf'   => $despesasPf,
+        'total_aemf'    => $totalAemf,
+        'total_pf'      => $totalPf,
+        'sem_categoria' => $semCategoria,
+    ]);
 }

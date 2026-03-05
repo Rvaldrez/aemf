@@ -696,33 +696,9 @@ function monthLabel(string $ym, array $names): string {
         <div class="table-container" id="fluxoCaixaSection" style="margin-bottom:25px;">
             <div class="table-header" style="justify-content:space-between;align-items:center;">
                 <h3 class="chart-title"><i class="fas fa-stream" style="color:#17a2b8;margin-right:8px;"></i>Fluxo de Caixa</h3>
-                <button class="btn btn-secondary" onclick="toggleSaldoInicialForm()" id="btnDefinirSaldo">
-                    <i class="fas fa-pencil-alt"></i> Definir Saldo Inicial
-                </button>
-            </div>
-            <!-- Formulário para definir saldo inicial -->
-            <div id="saldoInicialForm" style="display:none;background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:15px;">
-                <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-                    <div>
-                        <label style="display:block;font-size:.85rem;color:#6c757d;margin-bottom:4px;">Saldo em 31/dez do mês anterior (R$)</label>
-                        <input type="number" id="saldoInicialInput" step="0.01" placeholder="Ex: 12345.67"
-                               style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:220px;">
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:.85rem;color:#6c757d;margin-bottom:4px;">Observação (opcional)</label>
-                        <input type="text" id="saldoInicialObs" placeholder="Ex: Extrato Itaú Jan/26"
-                               style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:250px;">
-                    </div>
-                    <button onclick="saveSaldoInicial()" style="padding:9px 20px;background:#17a2b8;color:#fff;border:none;border-radius:6px;cursor:pointer;">
-                        <i class="fas fa-save"></i> Salvar
-                    </button>
-                </div>
-                <p style="font-size:.8rem;color:#6c757d;margin-top:8px;">
-                    <i class="fas fa-info-circle"></i>
-                    O saldo inicial é o saldo bancário no último dia do mês anterior.
-                    O sistema extrai o <strong>LEDGERBAL</strong> (saldo atual na data de exportação) do OFX, mas isso <em>não</em>
-                    é necessariamente o saldo de abertura do período. Informe aqui o saldo bancário no último dia do mês anterior para obter o fluxo de caixa completo.
-                </p>
+                <a href="admin_transacoes.php?tab=saldo" class="btn btn-secondary" style="font-size:.85rem;text-decoration:none;">
+                    <i class="fas fa-pencil-alt"></i> Gerenciar Saldo Inicial
+                </a>
             </div>
             <!-- Resumo do fluxo -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:15px;padding:10px 0;">
@@ -748,63 +724,14 @@ function monthLabel(string $ym, array $names): string {
 
         <!-- Main Content Grid -->
         <div class="content-grid">
-            <!-- Chart -->
+            <!-- Chart: Despesas Acumuladas AEMF I -->
             <div class="chart-container">
                 <div class="chart-header">
                     <h3 class="chart-title">Despesas Acumuladas AEMF I</h3>
-                    <div class="chart-options">
-                        <button class="chart-option active">Mensal</button>
-                        <button class="chart-option">Gráfico</button>
-                    </div>
+                    <div style="font-size:.8rem;color:var(--text-muted);" id="aemf-sem-cat-info"></div>
                 </div>
-                <div style="padding: 20px;">
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e9ecef;">
-                            <span style="color: #6c757d;">Despesas com Escritório</span>
-                            <div style="text-align: right;">
-                                <strong>R$ 59.939,13</strong>
-                                <div style="width: 200px; height: 4px; background: #e9ecef; border-radius: 2px; margin-top: 5px;">
-                                    <div style="width: 10%; height: 100%; background: #17a2b8; border-radius: 2px;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e9ecef;">
-                            <span style="color: #6c757d;">Despesas com Pessoal</span>
-                            <div style="text-align: right;">
-                                <strong>R$ 306.598,76</strong>
-                                <div style="width: 200px; height: 4px; background: #e9ecef; border-radius: 2px; margin-top: 5px;">
-                                    <div style="width: 52%; height: 100%; background: #d4af37; border-radius: 2px;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e9ecef;">
-                            <span style="color: #6c757d;">Contabilidade</span>
-                            <div style="text-align: right;">
-                                <strong>R$ 27.176,81</strong>
-                                <div style="width: 200px; height: 4px; background: #e9ecef; border-radius: 2px; margin-top: 5px;">
-                                    <div style="width: 5%; height: 100%; background: #28a745; border-radius: 2px;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e9ecef;">
-                            <span style="color: #6c757d;">Assessoria Jurídica</span>
-                            <div style="text-align: right;">
-                                <strong>R$ 190.077,50</strong>
-                                <div style="width: 200px; height: 4px; background: #e9ecef; border-radius: 2px; margin-top: 5px;">
-                                    <div style="width: 33%; height: 100%; background: #dc3545; border-radius: 2px;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
-                            <span style="color: #6c757d;">Taxas e Despesas Financeiras</span>
-                            <div style="text-align: right;">
-                                <strong>R$ 1.566,23</strong>
-                                <div style="width: 200px; height: 4px; background: #e9ecef; border-radius: 2px; margin-top: 5px;">
-                                    <div style="width: 1%; height: 100%; background: #6c757d; border-radius: 2px;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div id="despesas-aemf-rows" style="padding:10px 20px;">
+                    <p style="color:var(--text-muted);text-align:center;padding:30px;">Carregando...</p>
                 </div>
             </div>
 
@@ -814,41 +741,14 @@ function monthLabel(string $ym, array $names): string {
                     <h3 class="chart-title">Despesas Vinculadas Pessoa Física</h3>
                 </div>
                 <div class="pie-chart-wrapper">
-                    <div class="pie-chart" style="background: conic-gradient(#ffc107 0deg 83deg, #fd7e14 83deg 310deg, #dc3545 310deg 338deg, #6c757d 338deg 360deg);">
+                    <div class="pie-chart" id="pf-pie-chart" style="background: conic-gradient(#dee2e6 0deg 360deg);">
                         <div class="pie-center">
-                            <div class="pie-total">457K</div>
+                            <div class="pie-total" id="pf-total-label">—</div>
                             <div class="pie-label">Total PF</div>
                         </div>
                     </div>
-                    <div class="legend">
-                        <div class="legend-item">
-                            <div class="legend-left">
-                                <div class="legend-color" style="background: #ffc107;"></div>
-                                <span class="legend-text">Gastos com Veículos</span>
-                            </div>
-                            <span class="legend-value">R$ 105.485</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-left">
-                                <div class="legend-color" style="background: #fd7e14;"></div>
-                                <span class="legend-text">Cartão Corp. Wagner SP</span>
-                            </div>
-                            <span class="legend-value">R$ 295.000</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-left">
-                                <div class="legend-color" style="background: #dc3545;"></div>
-                                <span class="legend-text">Cartão Corp. Wagner MG</span>
-                            </div>
-                            <span class="legend-value">R$ 35.000</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-left">
-                                <div class="legend-color" style="background: #6c757d;"></div>
-                                <span class="legend-text">Outras</span>
-                            </div>
-                            <span class="legend-value">R$ 21.706</span>
-                        </div>
+                    <div class="legend" id="pf-legend">
+                        <p style="color:var(--text-muted);text-align:center;padding:20px;">Carregando...</p>
                     </div>
                 </div>
             </div>
@@ -933,6 +833,7 @@ function monthLabel(string $ym, array $names): string {
             currentMonth = document.getElementById('monthSelect').value;
             loadSummary();
             loadTransactions();
+            loadExpensesGrouped();
         }
 
         // ── Resumo financeiro ────────────────────────────────────────────────
@@ -952,21 +853,30 @@ function monthLabel(string $ym, array $names): string {
                     document.getElementById('fc-saidas').textContent   = fmt(data.saidas   || 0);
 
                     if (data.saldo_inicial !== null && data.saldo_inicial !== undefined) {
-                        document.getElementById('fc-saldo-inicial').textContent = fmt(data.saldo_inicial);
+                        document.getElementById('fc-saldo-inicial').textContent      = fmt(data.saldo_inicial);
                         document.getElementById('fc-saldo-inicial-hint').textContent = '';
-                        document.getElementById('saldoInicialInput').value = data.saldo_inicial;
                     } else {
                         document.getElementById('fc-saldo-inicial').textContent      = 'Não definido';
-                        document.getElementById('fc-saldo-inicial-hint').textContent = 'Clique em "Definir Saldo Inicial"';
+                        document.getElementById('fc-saldo-inicial-hint').textContent = 'Defina em Painel Adm. → Saldo Inicial';
                     }
 
-                    if (data.saldo_final !== null && data.saldo_final !== undefined) {
-                        document.getElementById('fc-saldo-final').textContent = fmt(data.saldo_final);
-                    } else {
-                        document.getElementById('fc-saldo-final').textContent = '—';
-                    }
+                    document.getElementById('fc-saldo-final').textContent =
+                        (data.saldo_final !== null && data.saldo_final !== undefined)
+                        ? fmt(data.saldo_final) : '—';
                 })
                 .catch(() => {/* falha silenciosa */});
+        }
+
+        // ── Despesas agrupadas (AEMF I e PF) ─────────────────────────────────
+        function loadExpensesGrouped() {
+            fetch(`api/dashboard_api.php?action=expensesGrouped&month=${currentMonth}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    renderAemfRows(data.despesas_aemf || [], data.total_aemf || 0, data.sem_categoria);
+                    renderPfPie(data.despesas_pf   || [], data.total_pf   || 0);
+                })
+                .catch(() => {});
         }
 
         // ── Transações ───────────────────────────────────────────────────────
@@ -1034,40 +944,6 @@ function monthLabel(string $ym, array $names): string {
             });
         }
 
-        // ── Saldo inicial ────────────────────────────────────────────────────
-        function toggleSaldoInicialForm() {
-            const form = document.getElementById('saldoInicialForm');
-            form.style.display = form.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function saveSaldoInicial() {
-            const saldo = document.getElementById('saldoInicialInput').value;
-            const obs   = document.getElementById('saldoInicialObs').value;
-            if (saldo === '') { alert('Informe o saldo inicial.'); return; }
-
-            const body = new URLSearchParams({
-                mes_referencia: currentMonth,
-                saldo:          saldo,
-                observacoes:    obs,
-            });
-
-            fetch('api/dashboard_api.php?action=setSaldoInicial', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body:    body.toString(),
-            })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        document.getElementById('saldoInicialForm').style.display = 'none';
-                        loadSummary();
-                    } else {
-                        alert('Erro: ' + (d.error || 'Falha ao salvar.'));
-                    }
-                })
-                .catch(() => alert('Erro de comunicação com o servidor.'));
-        }
-
         // ── Utilitários ──────────────────────────────────────────────────────
         function fmt(value) {
             return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -1081,7 +957,101 @@ function monthLabel(string $ym, array $names): string {
                 .replace(/"/g, '&quot;');
         }
 
-        // ── Init ─────────────────────────────────────────────────────────────
+        /**
+         * Validates a CSS color value to prevent CSS injection.
+         * Only allows hex colors (#RGB, #RRGGBB), rgb/rgba functions, and named colors.
+         * Returns a safe fallback if the value is invalid.
+         */
+        function safeCssColor(color, fallback = '#6c757d') {
+            if (!color) return fallback;
+            // Allow hex colors (#RGB or #RRGGBB)
+            if (/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(color)) return color;
+            // Allow rgb/rgba with numeric values only
+            if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[\d.]+\s*)?\)$/.test(color)) return color;
+            // Allow named CSS colors (letters only)
+            if (/^[a-zA-Z]+$/.test(color)) return color;
+            return fallback;
+        }
+
+        function renderAemfRows(rows, totalAemf, semCategoria) {
+            const el = document.getElementById('despesas-aemf-rows');
+            if (!rows.length) {
+                el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">Nenhuma despesa AEMF classificada para o período.</p>';
+            } else {
+                el.innerHTML = rows.map((r, i) => {
+                    const pct = totalAemf > 0 ? Math.round((r.total / totalAemf) * 100) : 0;
+                    const isLast = i === rows.length - 1;
+                    const cor = safeCssColor(r.cor, '#17a2b8');
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;${isLast ? '' : 'border-bottom:1px solid #e9ecef;'}">
+                        <span style="color:#6c757d;">${escHtml(r.nome)}</span>
+                        <div style="text-align:right;">
+                            <strong>${fmt(r.total)}</strong>
+                            <div style="width:200px;height:4px;background:#e9ecef;border-radius:2px;margin-top:5px;">
+                                <div style="width:${pct}%;height:100%;background:${cor};border-radius:2px;"></div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            // Show unclassified count
+            const infoEl = document.getElementById('aemf-sem-cat-info');
+            if (infoEl && semCategoria && semCategoria.qtd > 0) {
+                infoEl.innerHTML = `<span style="color:#dc3545;"><i class="fas fa-exclamation-circle"></i>
+                    ${semCategoria.qtd} transação(ões) sem classificação
+                    (<a href="admin_transacoes.php?tab=reclassificar" style="color:#dc3545;">reclassificar</a>)
+                </span>`;
+            }
+        }
+
+        function renderPfPie(rows, totalPf) {
+            const pie    = document.getElementById('pf-pie-chart');
+            const legend = document.getElementById('pf-legend');
+            const label  = document.getElementById('pf-total-label');
+
+            if (!rows.length) {
+                pie.style.background = 'conic-gradient(#dee2e6 0deg 360deg)';
+                label.textContent    = '—';
+                legend.innerHTML     = '<p style="color:var(--text-muted);text-align:center;padding:20px;">Nenhuma despesa PF classificada para o período.</p>';
+                return;
+            }
+
+            // Build conic-gradient — use safeCssColor to prevent CSS injection
+            let angle = 0;
+            const segments = rows.map(r => {
+                const deg = totalPf > 0 ? (r.total / totalPf) * 360 : 0;
+                const start = angle;
+                angle += deg;
+                return { ...r, start, end: angle, safeCor: safeCssColor(r.cor) };
+            });
+
+            const gradient = segments.map(s =>
+                `${s.safeCor} ${s.start.toFixed(1)}deg ${s.end.toFixed(1)}deg`
+            ).join(', ');
+            pie.style.background = `conic-gradient(${gradient})`;
+
+            // Format total label
+            const totalK = totalPf >= 1000 ? (totalPf / 1000).toFixed(0) + 'K' : fmt(totalPf);
+            label.textContent = totalK;
+
+            // Build legend — use safeCssColor in style attributes
+            const legendDiv = document.createElement('div');
+            rows.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <div class="legend-left">
+                        <div class="legend-color"></div>
+                        <span class="legend-text">${escHtml(r.nome)}</span>
+                    </div>
+                    <span class="legend-value">${fmt(r.total)}</span>`;
+                // Set color via JS property (not innerHTML) to avoid injection
+                item.querySelector('.legend-color').style.background = safeCssColor(r.cor);
+                legendDiv.appendChild(item);
+            });
+            legend.innerHTML = '';
+            legend.appendChild(legendDiv);
+        }
         document.addEventListener('DOMContentLoaded', function () {
             loadDashboardData();
         });

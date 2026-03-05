@@ -159,6 +159,9 @@ function processExtrato(PDO $pdo, array $fileInfo): array
         }
     }
 
+    // Auto-classificar transações recém importadas usando referencia_categorias
+    autoClassifyNew($pdo);
+
     // Salvar LEDGERBAL do OFX como referência (não sobrescreve saldo manual)
     if ($ledgerBal !== null) {
         saveLedgerBal($pdo, $ledgerBal);
@@ -499,6 +502,7 @@ function processComprovantes(PDO $pdo, array $filesArray): array
 
 /**
  * Tenta conciliar um comprovante com uma transação existente.
+ * Quando conciliado, atualiza a descrição da transação com o texto do comprovante.
  */
 function matchComprovante(PDO $pdo, string $text, string $fileName): bool
 {
@@ -519,10 +523,13 @@ function matchComprovante(PDO $pdo, string $text, string $fileName): bool
         $data = "{$dateMatch[3]}-{$dateMatch[2]}-{$dateMatch[1]}";
     }
 
+    // Extrair descrição do beneficiário a partir do comprovante
+    $descricaoComprovante = extractVoucherDescription($text, $fileName);
+
     // Buscar transação correspondente
     if ($data) {
         $stmt = $pdo->prepare("
-            SELECT id FROM transacoes
+            SELECT id, descricao, observacoes FROM transacoes
             WHERE ABS(valor - :valor) < 0.01
               AND data = :data
               AND (documento_origem IS NULL OR documento_origem NOT LIKE 'comprovante_%')
@@ -531,7 +538,7 @@ function matchComprovante(PDO $pdo, string $text, string $fileName): bool
         $stmt->execute([':valor' => $valor, ':data' => $data]);
     } else {
         $stmt = $pdo->prepare("
-            SELECT id FROM transacoes
+            SELECT id, descricao, observacoes FROM transacoes
             WHERE ABS(valor - :valor) < 0.01
               AND (documento_origem IS NULL OR documento_origem NOT LIKE 'comprovante_%')
             ORDER BY data DESC
@@ -545,16 +552,110 @@ function matchComprovante(PDO $pdo, string $text, string $fileName): bool
         return false;
     }
 
-    // Marcar como conciliada
+    // Preservar a descrição original do extrato em observacoes (se ainda não estiver)
+    $observacoes = $row['observacoes'];
+    if (empty($observacoes)) {
+        $observacoes = $row['descricao'];
+    }
+
+    // Atualizar: nova descrição vem do comprovante; original fica em observacoes
+    $novaDescricao = !empty($descricaoComprovante) ? substr($descricaoComprovante, 0, 500) : $row['descricao'];
+
     $update = $pdo->prepare("
         UPDATE transacoes
-        SET documento_origem = :origem, updated_at = NOW()
+        SET descricao        = :descricao,
+            observacoes      = :obs,
+            documento_origem = :origem,
+            updated_at       = NOW()
         WHERE id = :id
     ");
     $update->execute([
-        ':origem' => 'comprovante_' . basename($fileName),
-        ':id'     => $row['id'],
+        ':descricao' => $novaDescricao,
+        ':obs'       => substr($observacoes, 0, 1000),
+        ':origem'    => 'comprovante_' . basename($fileName),
+        ':id'        => $row['id'],
     ]);
 
     return true;
+}
+
+/**
+ * Extrai a melhor descrição disponível de um texto de comprovante PDF.
+ * Procura por campos comuns como Beneficiário, Favorecido, Fornecedor, Empresa.
+ */
+function extractVoucherDescription(string $text, string $fileName): string
+{
+    $patterns = [
+        // Padrões comuns em comprovantes bancários brasileiros
+        '/(?:Favorecido|Benefici[aá]rio|Destinat[aá]rio|Empresa|Fornecedor|Nome)\s*[:\-]\s*([^\n\r]{3,80})/ui',
+        '/(?:Pagamento\s+a|Pago\s+para|Transferido\s+para)\s*[:\-]?\s*([^\n\r]{3,80})/ui',
+        '/CNPJ[:\s]+[\d\.\-\/]+\s+([A-Z][^\n\r]{3,60})/u',
+    ];
+
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $text, $m)) {
+            $candidate = trim($m[1]);
+            // Filter out noise (numbers-only, very short, dates)
+            if (strlen($candidate) >= 3 && !preg_match('/^\d+[\d\s\.\/\-]*$/', $candidate)) {
+                return mb_convert_case($candidate, MB_CASE_TITLE, 'UTF-8');
+            }
+        }
+    }
+
+    // Fallback: use o nome do arquivo sem extensão como descrição
+    $baseName = pathinfo($fileName, PATHINFO_FILENAME);
+    $baseName = preg_replace('/[_\-]+/', ' ', $baseName);
+    return mb_convert_case(trim($baseName), MB_CASE_TITLE, 'UTF-8');
+}
+
+/**
+ * Aplica regras de classificação automática da tabela `referencias`
+ * às transações ainda sem categoria. Chamado automaticamente após cada importação.
+ */
+function autoClassifyNew(PDO $pdo): void
+{
+    try {
+        // Carregar referências ordenadas do mais específico (maior) ao mais curto
+        $refs = $pdo->query("
+            SELECT r.padrao, r.categoria_id, r.id AS ref_id
+            FROM   referencias r
+            WHERE  r.categoria_id IS NOT NULL
+            ORDER  BY LENGTH(r.padrao) DESC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($refs)) {
+            return;
+        }
+
+        // Buscar transações sem categoria (limitar a 500 por chamada)
+        $transacoes = $pdo->query("
+            SELECT id, descricao FROM transacoes
+            WHERE  categoria_id IS NULL
+            LIMIT  500
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($transacoes)) {
+            return;
+        }
+
+        $stmtUpdate = $pdo->prepare(
+            "UPDATE transacoes SET categoria_id = :cat, updated_at = NOW() WHERE id = :id"
+        );
+        $stmtUso = $pdo->prepare(
+            "UPDATE referencias SET uso_count = uso_count + 1 WHERE id = :id"
+        );
+
+        foreach ($transacoes as $t) {
+            $descUpper = strtoupper($t['descricao']);
+            foreach ($refs as $ref) {
+                if (strpos($descUpper, strtoupper($ref['padrao'])) !== false) {
+                    $stmtUpdate->execute([':cat' => $ref['categoria_id'], ':id' => $t['id']]);
+                    $stmtUso->execute([':id' => $ref['ref_id']]);
+                    break; // one match per transaction
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log('autoClassifyNew: ' . $e->getMessage());
+    }
 }

@@ -431,20 +431,17 @@
             <button class="tab active" onclick="showTab('importacao')">
                 <i class="fas fa-file-upload"></i> Importação
             </button>
-            <button class="tab" onclick="showTab('categorizar')">
-                <i class="fas fa-check-circle"></i> Categorizar
-            </button>
-            <button class="tab" onclick="showTab('categorias')">
-                <i class="fas fa-tags"></i> Categorias
-            </button>
             <button class="tab" onclick="showTab('referencias')">
                 <i class="fas fa-robot"></i> Padrões
             </button>
             <button class="tab" onclick="showTab('reclassificar')">
                 <i class="fas fa-sync"></i> Reclassificar
             </button>
-            <button class="tab" onclick="window.location.href='admin_transacoes.php'">
-                <i class="fas fa-list"></i> Todas Transações
+            <button class="tab" onclick="showTab('categorias')">
+                <i class="fas fa-tags"></i> Categorias
+            </button>
+            <button class="tab" onclick="showTab('saldo')">
+                <i class="fas fa-balance-scale"></i> Saldo Inicial
             </button>
             <button class="tab" onclick="window.location.href='index.php'">
                 <i class="fas fa-chart-line"></i> Dashboard
@@ -462,72 +459,27 @@
                     <h3 style="color: #333; margin-bottom: 10px;">Importar Extratos e Comprovantes</h3>
                     <p style="color: #666; margin-bottom: 25px;">
                         Clique no botão abaixo para abrir a interface de importação de documentos financeiros.
+                        Após a importação, o sistema classifica automaticamente as transações usando os Padrões cadastrados.
                     </p>
                     <a href="upload_interface.php" class="btn btn-primary" style="font-size: 18px; padding: 15px 40px; border-radius: 30px; text-decoration: none; display: inline-block;">
                         <i class="fas fa-file-upload"></i> Abrir Importador de Documentos
                     </a>
                     <p style="color: #999; font-size: 13px; margin-top: 20px;">
-                        Após importar, utilize a aba <strong>Categorizar</strong> para classificar as transações.
+                        Transações não classificadas automaticamente ficam disponíveis na aba <strong>Reclassificar</strong>.
                     </p>
                 </div>
             </div>
-        </div>
-        
-        <!-- Tab Categorizar Transações -->
-        <div id="tab-categorizar" class="content-area" style="display: none;">
-            <div class="actions-header">
-                <h2>Transações Sem Categoria</h2>
-                <div class="bulk-actions">
-                    <span class="selected-count" id="selectedCount">0 selecionadas</span>
-                    <button class="btn btn-primary btn-sm" onclick="categorizarSelecionadas()">
-                        Categorizar Selecionadas
-                    </button>
-                </div>
-            </div>
-            
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="stat-label">Total sem categoria</div>
-                    <div class="stat-value" id="statSemCategoria">0</div>
-                    <div class="stat-detail">Necessitam classificação</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Valor total</div>
-                    <div class="stat-value" id="statValorTotal">R$ 0</div>
-                    <div class="stat-detail">Em transações pendentes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Conciliadas</div>
-                    <div class="stat-value" id="statConciliadas">0</div>
-                    <div class="stat-detail">Com comprovantes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Taxa de conclusão</div>
-                    <div class="stat-value" id="statTaxa">0%</div>
-                    <div class="stat-detail">Do período atual</div>
-                </div>
-            </div>
-            
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="checkbox-cell">
-                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                            </th>
-                            <th>Data</th>
-                            <th>Descrição</th>
-                            <th>Beneficiário</th>
-                            <th>Valor</th>
-                            <th>Status</th>
-                            <th>Categoria</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transacoesSemCategoria">
-                        <!-- Será preenchido via JS -->
-                    </tbody>
-                </table>
+
+            <div style="margin-top: 30px; text-align: center;">
+                <hr style="margin-bottom: 25px;">
+                <h3 style="margin-bottom: 10px;">Classificação Automática</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                    Aplica as regras da tabela <strong>Padrões</strong> a todas as transações ainda sem classificação.
+                </p>
+                <button class="btn btn-primary" onclick="aplicarRegrasAutomaticas()" id="btnAutoClassify">
+                    <i class="fas fa-magic"></i> Aplicar Regras Automáticas
+                </button>
+                <div id="autoClassifyResult" style="margin-top:15px;"></div>
             </div>
         </div>
         
@@ -592,7 +544,7 @@
             
             <div style="margin: 20px 0; display: flex; gap: 10px; align-items: center;">
                 <label>Filtrar por período:</label>
-                <input type="month" id="filterMonth" value="2025-09">
+                <input type="month" id="filterMonth" value="<?= date('Y-m') ?>">
                 <button class="btn btn-primary" onclick="loadTransacoes()">
                     <i class="fas fa-search"></i> Buscar
                 </button>
@@ -620,8 +572,73 @@
                 </button>
             </div>
         </div>
+
+        <!-- Tab Saldo Inicial -->
+        <div id="tab-saldo" class="content-area" style="display: none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2><i class="fas fa-balance-scale" style="color:#17a2b8;margin-right:8px;"></i>Saldo Inicial por Período</h2>
+                <button class="btn btn-primary" onclick="openModalSaldo()">
+                    <i class="fas fa-plus"></i> Novo Saldo Inicial
+                </button>
+            </div>
+            <p style="color:#666;margin-bottom:20px;">
+                Informe o saldo bancário no <strong>último dia do mês anterior</strong> para que o Dashboard calcule corretamente o Fluxo de Caixa.
+            </p>
+
+            <table id="saldoInicialTable">
+                <thead>
+                    <tr>
+                        <th>Mês de Referência</th>
+                        <th>Data de Referência</th>
+                        <th>Saldo (R$)</th>
+                        <th>Tipo</th>
+                        <th>Observações</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="saldoInicialBody">
+                    <!-- preenchido via JS -->
+                </tbody>
+            </table>
+        </div>
     </div>
-    
+
+    <!-- Modal Saldo Inicial -->
+    <div id="modalSaldo" class="modal">
+        <div class="modal-content">
+            <h3 id="modalSaldoTitle">Novo Saldo Inicial</h3>
+            <form id="formSaldo" onsubmit="submitSaldo(event)">
+                <input type="hidden" id="saldoId">
+                <div class="form-group">
+                    <label>Mês de Referência (YYYY-MM):</label>
+                    <input type="month" id="saldoMes" required
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    <small style="color:#666;">Exemplo: 2026-01 para indicar o saldo de abertura de Janeiro/2026</small>
+                </div>
+                <div class="form-group">
+                    <label>Data de Referência (data exata do saldo):</label>
+                    <input type="date" id="saldoDataRef"
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    <small style="color:#666;">Geralmente o último dia do mês anterior (ex.: 31/12/2025 para Janeiro/2026)</small>
+                </div>
+                <div class="form-group">
+                    <label>Saldo (R$):</label>
+                    <input type="number" id="saldoValor" step="0.01" required placeholder="Ex: 12345.67"
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div class="form-group">
+                    <label>Observações (opcional):</label>
+                    <input type="text" id="saldoObs" placeholder="Ex: Extrato Itaú Dez/2025"
+                           style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button type="submit" class="btn btn-success">Salvar</button>
+                    <button type="button" class="btn btn-danger" onclick="closeModal('Saldo')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modais -->
     <div id="modalCategoria" class="modal">
         <div class="modal-content">
@@ -735,9 +752,9 @@
             event.target.classList.add('active');
             document.getElementById(`tab-${tab}`).style.display = 'block';
             
-            if (tab === 'categorias') loadCategorias();
+            if (tab === 'categorias')  loadCategorias();
             if (tab === 'referencias') loadReferencias();
-            if (tab === 'categorizar') loadTransacoesSemCategoria();
+            if (tab === 'saldo')       loadSaldoInicial();
         }
         
         function showResults(result) {
@@ -1268,10 +1285,154 @@
                 });
         }
 
+        // ── Aplicar Regras Automáticas ───────────────────────────────────────
+        function aplicarRegrasAutomaticas() {
+            const btn = document.getElementById('btnAutoClassify');
+            const resultEl = document.getElementById('autoClassifyResult');
+            if (btn) btn.disabled = true;
+            if (resultEl) resultEl.innerHTML = '<em>Processando...</em>';
+
+            fetch('api/admin_api.php?action=aplicarRegrasAutomaticas')
+                .then(r => r.json())
+                .then(data => {
+                    if (btn) btn.disabled = false;
+                    if (data.success && resultEl) {
+                        const s = data.stats || {};
+                        resultEl.innerHTML = `<div style="background:#d4edda;color:#155724;padding:12px;border-radius:6px;margin-top:10px;">
+                            <strong>✔ Concluído!</strong><br>
+                            Transações analisadas: ${s.transacoes_analisadas || 0}<br>
+                            Classificadas automaticamente: ${s.transacoes_classificadas || 0}
+                        </div>`;
+                    } else if (resultEl) {
+                        resultEl.innerHTML = `<div style="background:#f8d7da;color:#721c24;padding:12px;border-radius:6px;margin-top:10px;">
+                            Erro: ${escapeHtml(data.error || 'Falha desconhecida')}
+                        </div>`;
+                    }
+                })
+                .catch(err => {
+                    if (btn) btn.disabled = false;
+                    if (resultEl) resultEl.innerHTML = `<div style="color:red;">Erro de comunicação: ${err.message}</div>`;
+                });
+        }
+
+        // ── Saldo Inicial ─────────────────────────────────────────────────────
+        function loadSaldoInicial() {
+            fetch('api/admin_api.php?action=getSaldoInicial')
+                .then(r => r.json())
+                .then(res => {
+                    const tbody = document.getElementById('saldoInicialBody');
+                    if (!res.success || !res.data.length) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6c757d;padding:20px;">Nenhum saldo inicial cadastrado.</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = res.data.map(s => {
+                        const editBtn = s.tipo === 'manual'
+                            ? `<button class="btn btn-warning btn-sm" data-action="edit-saldo"
+                                    data-id="${s.id}"
+                                    data-mes="${escapeHtml(s.mes_referencia)}"
+                                    data-dtref="${s.data_referencia || ''}"
+                                    data-saldo="${s.saldo}"
+                                    data-obs="${escapeHtml(s.observacoes || '')}">
+                                   <i class="fas fa-edit"></i>
+                               </button>
+                               <button class="btn btn-danger btn-sm" data-action="delete-saldo" data-id="${s.id}">
+                                   <i class="fas fa-trash"></i>
+                               </button>`
+                            : '—';
+                        return `<tr>
+                            <td><strong>${escapeHtml(s.mes_referencia)}</strong></td>
+                            <td>${s.data_referencia ? formatDate(s.data_referencia) : '—'}</td>
+                            <td>${formatCurrency(s.saldo)}</td>
+                            <td><span class="badge badge-${s.tipo === 'manual' ? 'success' : 'secondary'}">${s.tipo}</span></td>
+                            <td>${escapeHtml(s.observacoes || '—')}</td>
+                            <td>${editBtn}</td>
+                        </tr>`;
+                    }).join('');
+
+                    // Attach click handlers after rendering
+                    tbody.querySelectorAll('[data-action="edit-saldo"]').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            openModalSaldo(
+                                btn.dataset.id,
+                                btn.dataset.mes,
+                                btn.dataset.dtref,
+                                btn.dataset.saldo,
+                                btn.dataset.obs
+                            );
+                        });
+                    });
+                    tbody.querySelectorAll('[data-action="delete-saldo"]').forEach(btn => {
+                        btn.addEventListener('click', () => deleteSaldo(btn.dataset.id));
+                    });
+                })
+                .catch(() => {
+                    document.getElementById('saldoInicialBody').innerHTML =
+                        '<tr><td colspan="6" style="color:red;text-align:center;padding:20px;">Erro ao carregar dados.</td></tr>';
+                });
+        }
+
+        function openModalSaldo(id = null, mes = '', dtRef = '', saldo = '', obs = '') {
+            document.getElementById('saldoId').value = id || '';
+            document.getElementById('saldoMes').value = mes;
+            document.getElementById('saldoDataRef').value = dtRef;
+            document.getElementById('saldoValor').value = saldo;
+            document.getElementById('saldoObs').value = obs;
+            document.getElementById('modalSaldoTitle').textContent = id ? 'Editar Saldo Inicial' : 'Novo Saldo Inicial';
+            document.getElementById('modalSaldo').classList.add('active');
+        }
+
+        function submitSaldo(e) {
+            e.preventDefault();
+            const body = new URLSearchParams({
+                mes_referencia:  document.getElementById('saldoMes').value,
+                data_referencia: document.getElementById('saldoDataRef').value,
+                saldo:           document.getElementById('saldoValor').value,
+                observacoes:     document.getElementById('saldoObs').value,
+            });
+            fetch('api/admin_api.php?action=saveSaldoInicial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal('Saldo');
+                    loadSaldoInicial();
+                    alert('Saldo inicial salvo com sucesso!');
+                } else {
+                    alert('Erro: ' + (data.error || 'Falha ao salvar.'));
+                }
+            })
+            .catch(() => alert('Erro de comunicação com o servidor.'));
+        }
+
+        function deleteSaldo(id) {
+            if (!confirm('Excluir este saldo inicial?')) return;
+            fetch(`api/admin_api.php?action=deleteSaldoInicial&id=${id}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        loadSaldoInicial();
+                        alert('Saldo excluído.');
+                    } else {
+                        alert('Erro ao excluir.');
+                    }
+                });
+        }
+
         // Load initial data
         document.addEventListener('DOMContentLoaded', function() {
             // Carregar categorias para os selects
             loadCategorias(false);
+
+            // Abrir aba solicitada via query string ?tab=saldo
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            if (tab) {
+                const tabBtn = document.querySelector(`.tab[onclick*="'${tab}'"]`);
+                if (tabBtn) tabBtn.click();
+            }
         });
     </script>
 </body>

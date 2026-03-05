@@ -99,6 +99,24 @@ try {
             aplicarRegrasAutomaticas($pdo);
             break;
 
+        // ---- SALDO INICIAL ----
+        case 'getSaldoInicial':
+            getSaldoInicial($pdo);
+            break;
+
+        case 'saveSaldoInicial':
+            saveSaldoInicial($pdo, $_POST);
+            break;
+
+        case 'deleteSaldoInicial':
+            deleteSaldoInicial($pdo, (int) ($_GET['id'] ?? $_POST['id'] ?? 0));
+            break;
+
+        // ---- DESPESAS AGRUPADAS (dashboard) ----
+        case 'getExpensesGrouped':
+            getExpensesGrouped($pdo);
+            break;
+
         default:
             echo json_encode(['success' => false, 'error' => "Ação desconhecida: {$action}"]);
     }
@@ -388,5 +406,162 @@ function aplicarRegrasAutomaticas(PDO $pdo): void
             'transacoes_classificadas' => $totalClassificadas,
             'regras_aplicadas'         => $regrasAplicadas,
         ],
+    ]);
+}
+
+// ============================================================
+// SALDO INICIAL
+// ============================================================
+
+/**
+ * Garante que a tabela saldo_inicial existe.
+ */
+function ensureSaldoInicialTable(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS saldo_inicial (
+            id              INT AUTO_INCREMENT PRIMARY KEY,
+            mes_referencia  VARCHAR(7)     NOT NULL,
+            saldo           DECIMAL(15,2)  NOT NULL DEFAULT 0,
+            tipo            ENUM('manual','ledgerbal','calculado') NOT NULL DEFAULT 'manual',
+            data_referencia DATE           NULL,
+            observacoes     VARCHAR(255)   NULL,
+            created_at      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_mes_tipo (mes_referencia, tipo)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+}
+
+function getSaldoInicial(PDO $pdo): void
+{
+    ensureSaldoInicialTable($pdo);
+    $stmt = $pdo->query("
+        SELECT id, mes_referencia, saldo, tipo, data_referencia, observacoes, created_at
+        FROM   saldo_inicial
+        ORDER  BY mes_referencia DESC, FIELD(tipo,'manual','calculado','ledgerbal')
+    ");
+    echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
+}
+
+function saveSaldoInicial(PDO $pdo, array $post): void
+{
+    ensureSaldoInicialTable($pdo);
+
+    $mes    = trim($post['mes_referencia'] ?? '');
+    $saldo  = (float) ($post['saldo'] ?? 0);
+    $dtRef  = !empty($post['data_referencia']) ? $post['data_referencia'] : null;
+    $obs    = substr($post['observacoes'] ?? '', 0, 255) ?: null;
+
+    if (!preg_match('/^\d{4}-\d{2}$/', $mes)) {
+        echo json_encode(['success' => false, 'error' => 'Mês inválido. Use formato YYYY-MM.']);
+        return;
+    }
+
+    // Validate date_referencia if provided
+    if ($dtRef !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dtRef)) {
+        echo json_encode(['success' => false, 'error' => 'Data de referência inválida.']);
+        return;
+    }
+
+    $stmt = $pdo->prepare("
+        INSERT INTO saldo_inicial (mes_referencia, saldo, tipo, data_referencia, observacoes)
+        VALUES (:mes, :saldo, 'manual', :dt, :obs)
+        ON DUPLICATE KEY UPDATE
+            saldo           = VALUES(saldo),
+            data_referencia = VALUES(data_referencia),
+            observacoes     = VALUES(observacoes),
+            updated_at      = NOW()
+    ");
+    $stmt->execute([':mes' => $mes, ':saldo' => $saldo, ':dt' => $dtRef, ':obs' => $obs]);
+    echo json_encode(['success' => true]);
+}
+
+function deleteSaldoInicial(PDO $pdo, int $id): void
+{
+    ensureSaldoInicialTable($pdo);
+    if (!$id) {
+        echo json_encode(['success' => false, 'error' => 'ID inválido']);
+        return;
+    }
+
+    // Check if the record exists and its type before deleting
+    $check = $pdo->prepare("SELECT tipo FROM saldo_inicial WHERE id = :id");
+    $check->execute([':id' => $id]);
+    $row = $check->fetch();
+
+    if (!$row) {
+        echo json_encode(['success' => false, 'error' => 'Registro não encontrado.']);
+        return;
+    }
+    if ($row['tipo'] !== 'manual') {
+        echo json_encode(['success' => false, 'error' => 'Apenas saldos do tipo "manual" podem ser excluídos. Este registro é do tipo "' . $row['tipo'] . '".']);
+        return;
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM saldo_inicial WHERE id = :id AND tipo = 'manual'");
+    $stmt->execute([':id' => $id]);
+    echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]);
+}
+
+// ============================================================
+// DESPESAS AGRUPADAS POR CATEGORIA (para o Dashboard)
+// ============================================================
+
+function getExpensesGrouped(PDO $pdo): void
+{
+    $mes = $_GET['month'] ?? $_GET['mes'] ?? date('Y-m');
+    if (!preg_match('/^\d{4}-\d{2}$/', $mes)) {
+        $mes = date('Y-m');
+    }
+
+    // Despesas AEMF agrupadas por categoria
+    $stmtAemf = $pdo->prepare("
+        SELECT  c.nome, c.cor, SUM(t.valor) AS total
+        FROM    transacoes t
+        JOIN    categorias c ON t.categoria_id = c.id
+        WHERE   t.mes_referencia = :mes
+          AND   t.tipo = 'debito'
+          AND   c.tipo = 'despesa_aemf'
+        GROUP BY c.id, c.nome, c.cor
+        ORDER BY total DESC
+    ");
+    $stmtAemf->execute([':mes' => $mes]);
+    $despesasAemf = $stmtAemf->fetchAll();
+
+    // Despesas PF agrupadas por categoria
+    $stmtPf = $pdo->prepare("
+        SELECT  c.nome, c.cor, SUM(t.valor) AS total
+        FROM    transacoes t
+        JOIN    categorias c ON t.categoria_id = c.id
+        WHERE   t.mes_referencia = :mes
+          AND   t.tipo = 'debito'
+          AND   c.tipo = 'despesa_pf'
+        GROUP BY c.id, c.nome, c.cor
+        ORDER BY total DESC
+    ");
+    $stmtPf->execute([':mes' => $mes]);
+    $despesasPf = $stmtPf->fetchAll();
+
+    // Sem categoria (não classificados)
+    $stmtSem = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM   transacoes
+        WHERE  mes_referencia = :mes AND tipo = 'debito' AND categoria_id IS NULL
+    ");
+    $stmtSem->execute([':mes' => $mes]);
+    $semCategoria = $stmtSem->fetch();
+
+    $totalAemf = array_sum(array_column($despesasAemf, 'total'));
+    $totalPf   = array_sum(array_column($despesasPf,   'total'));
+
+    echo json_encode([
+        'success'        => true,
+        'month'          => $mes,
+        'despesas_aemf'  => $despesasAemf,
+        'despesas_pf'    => $despesasPf,
+        'total_aemf'     => $totalAemf,
+        'total_pf'       => $totalPf,
+        'sem_categoria'  => $semCategoria,
     ]);
 }
