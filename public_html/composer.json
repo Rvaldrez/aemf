@@ -1,0 +1,11 @@
+{
+    "name": "seu-projeto/nome",
+    "description": "Descrição do seu projeto",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "smalot/pdfparser": "^2.12"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
