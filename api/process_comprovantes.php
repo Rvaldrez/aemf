@@ -30,6 +30,15 @@ if ($pdfParserDisponivel) {
     require_once $vendorAutoload;
 }
 
+// Garantir que o diretório de destino existe
+$uploadDir = defined('UPLOAD_PATH')
+    ? UPLOAD_PATH . 'comprovantes/'
+    : dirname(__DIR__) . '/uploads/comprovantes/';
+
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0755, true);
+}
+
 // Tolerância de comparação monetária (em reais)
 define('RECONCILIATION_TOLERANCE', 0.02);
 
@@ -46,24 +55,33 @@ try {
         $tmpPath = $files['tmp_name'][$i];
         $nome    = $files['name'][$i];
 
+        // Salvar o PDF permanentemente antes de qualquer processamento
+        $nomeSalvo = uniqid(time() . '_', true) . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', basename($nome));
+        $destPath  = $uploadDir . $nomeSalvo;
+        $savedOk   = move_uploaded_file($tmpPath, $destPath);
+        if (!$savedOk) {
+            error_log("process_comprovantes: falha ao salvar '{$nome}' em '{$destPath}'");
+        }
+
         $texto = '';
-        if ($pdfParserDisponivel) {
+        if ($savedOk && $pdfParserDisponivel) {
             try {
                 $parser = new \Smalot\PdfParser\Parser();
-                $pdf    = $parser->parseFile($tmpPath);
+                $pdf    = $parser->parseFile($destPath);
                 $texto  = $pdf->getText();
             } catch (Exception $e) {
                 // Continua com texto vazio
             }
         }
 
-        $conciliado = tentarConciliar($texto, $nome, $db);
+        $conciliado = tentarConciliar($texto, $nomeSalvo, $db);
         if ($conciliado) {
             $result['matched']++;
         }
 
         $result['detalhes'][] = [
             'arquivo'    => $nome,
+            'salvo'      => $savedOk,
             'conciliado' => $conciliado,
             'tem_texto'  => !empty(trim($texto)),
         ];

@@ -151,10 +151,20 @@ function processarOFX(string $tmpPath, PDO $db): array {
 
 /**
  * Processa os arquivos PDF de comprovantes e tenta conciliar com as transações existentes.
+ * Os arquivos são persistidos em uploads/comprovantes/ antes de qualquer processamento.
  */
 function processarComprovantes(array $filesArray, PDO $db): array {
     $vendorAutoload = dirname(__DIR__) . '/vendor/autoload.php';
     $pdfParserDisponivel = file_exists($vendorAutoload);
+
+    // Garantir que o diretório de destino existe
+    $uploadDir = defined('UPLOAD_PATH')
+        ? UPLOAD_PATH . 'comprovantes/'
+        : dirname(__DIR__) . '/uploads/comprovantes/';
+
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
 
     $processed = 0;
     $matched   = 0;
@@ -164,18 +174,27 @@ function processarComprovantes(array $filesArray, PDO $db): array {
 
     for ($i = 0; $i < $total; $i++) {
         if ($filesArray['error'][$i] !== UPLOAD_ERR_OK) continue;
-        if (!in_array(strtolower(pathinfo($filesArray['name'][$i], PATHINFO_EXTENSION)), ['pdf'])) continue;
+        if (strtolower(pathinfo($filesArray['name'][$i], PATHINFO_EXTENSION)) !== 'pdf') continue;
 
         $processed++;
-        $tmpPath = $filesArray['tmp_name'][$i];
+        $tmpPath      = $filesArray['tmp_name'][$i];
+        $nomeOriginal = $filesArray['name'][$i];
+
+        // Salvar o PDF no diretório permanente com nome único para evitar colisões
+        $nomeSalvo  = uniqid(time() . '_', true) . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', basename($nomeOriginal));
+        $destPath   = $uploadDir . $nomeSalvo;
+        $savedOk    = move_uploaded_file($tmpPath, $destPath);
+        if (!$savedOk) {
+            error_log("process_documents: falha ao salvar comprovante '{$nomeOriginal}' em '{$destPath}'");
+        }
 
         $textoExtraido = '';
 
-        if ($pdfParserDisponivel) {
+        if ($savedOk && $pdfParserDisponivel) {
             try {
                 require_once $vendorAutoload;
                 $parser = new \Smalot\PdfParser\Parser();
-                $pdf    = $parser->parseFile($tmpPath);
+                $pdf    = $parser->parseFile($destPath);
                 $textoExtraido = $pdf->getText();
             } catch (Exception $e) {
                 // Falha silenciosa; texto ficará vazio
@@ -183,13 +202,14 @@ function processarComprovantes(array $filesArray, PDO $db): array {
         }
 
         // Tentar conciliar pelo valor e data extraídos do texto do PDF
-        $conciliado = conciliarComTexto($textoExtraido, $filesArray['name'][$i], $db);
+        $conciliado = conciliarComTexto($textoExtraido, $nomeSalvo, $db);
         if ($conciliado) {
             $matched++;
         }
 
         $detalhes[] = [
-            'arquivo'    => $filesArray['name'][$i],
+            'arquivo'    => $nomeOriginal,
+            'salvo'      => $savedOk,
             'conciliado' => $conciliado,
         ];
     }
