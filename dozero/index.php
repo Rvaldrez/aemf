@@ -412,7 +412,7 @@ async function loadTransactions(){
                     ? `${catDot}<span style="font-size:13px">${esc(t.categoria)}</span>`
                     : '<span class="text-muted">—</span>';
                 const classif = classBadge(t.classificacao);
-                const conc = t.conciliado == 1
+                const conc = parseInt(t.conciliado) > 0
                     ? '<span class="badge badge-ok"><i class="fa-solid fa-check"></i></span>'
                     : '<span style="color:#ddd">—</span>';
                 return `<tr>

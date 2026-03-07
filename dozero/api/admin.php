@@ -33,7 +33,7 @@ try {
             $stmt->execute([
                 ':nome'  => $data['nome']  ?? '',
                 ':tipo'  => $data['tipo']  ?? 'despesa_aemf',
-                ':grupo' => $data['grupo'] ?? '',
+                ':grupo' => $data['grupo'] ?? null,
                 ':cor'   => $data['cor']   ?? '#17a2b8',
             ]);
             echo json_encode(['success' => true, 'id' => $db->lastInsertId()], JSON_UNESCAPED_UNICODE);
@@ -47,7 +47,7 @@ try {
             $stmt->execute([
                 ':nome'  => $data['nome']  ?? '',
                 ':tipo'  => $data['tipo']  ?? 'despesa_aemf',
-                ':grupo' => $data['grupo'] ?? '',
+                ':grupo' => $data['grupo'] ?? null,
                 ':cor'   => $data['cor']   ?? '#17a2b8',
                 ':id'    => $id,
             ]);
@@ -61,13 +61,14 @@ try {
             break;
 
         // ═══════════════════════════════════════════════════════════════════
-        // REFERÊNCIAS
+        // REFERENCIAS_CATEGORIA
         // ═══════════════════════════════════════════════════════════════════
         case 'getReferencias':
             $stmt = $db->query("
                 SELECT r.*, c.nome AS categoria_nome
-                FROM referencias r
+                FROM referencias_categoria r
                 LEFT JOIN categorias c ON c.id = r.categoria_id
+                WHERE r.ativo = 1
                 ORDER BY r.padrao
             ");
             echo json_encode(['success' => true, 'data' => $stmt->fetchAll()], JSON_UNESCAPED_UNICODE);
@@ -75,14 +76,14 @@ try {
 
         case 'saveReferencia':
             $stmt = $db->prepare("
-                INSERT INTO referencias (padrao, categoria_id, tipo_transacao, observacoes)
+                INSERT INTO referencias_categoria (padrao, categoria_id, tipo_transacao, observacoes)
                 VALUES (:padrao, :cat_id, :tipo, :obs)
             ");
             $stmt->execute([
-                ':padrao' => $data['padrao']       ?? '',
+                ':padrao' => $data['padrao']          ?? '',
                 ':cat_id' => (int)($data['categoria_id'] ?? 0) ?: null,
-                ':tipo'   => $data['tipo_transacao'] ?? null,
-                ':obs'    => $data['observacoes']  ?? null,
+                ':tipo'   => $data['tipo_transacao']  ?? null,
+                ':obs'    => $data['observacoes']     ?? null,
             ]);
             echo json_encode(['success' => true, 'id' => $db->lastInsertId()], JSON_UNESCAPED_UNICODE);
             break;
@@ -90,21 +91,24 @@ try {
         case 'updateReferencia':
             $id = (int)($data['id'] ?? 0);
             $stmt = $db->prepare("
-                UPDATE referencias SET padrao=:padrao, categoria_id=:cat_id, tipo_transacao=:tipo, observacoes=:obs WHERE id=:id
+                UPDATE referencias_categoria
+                SET padrao=:padrao, categoria_id=:cat_id, tipo_transacao=:tipo, observacoes=:obs
+                WHERE id=:id
             ");
             $stmt->execute([
-                ':padrao' => $data['padrao']       ?? '',
+                ':padrao' => $data['padrao']          ?? '',
                 ':cat_id' => (int)($data['categoria_id'] ?? 0) ?: null,
-                ':tipo'   => $data['tipo_transacao'] ?? null,
-                ':obs'    => $data['observacoes']  ?? null,
+                ':tipo'   => $data['tipo_transacao']  ?? null,
+                ':obs'    => $data['observacoes']     ?? null,
                 ':id'     => $id,
             ]);
             echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'deleteReferencia':
+            // Soft-delete: mark as inactive
             $id = (int)($data['id'] ?? 0);
-            $db->prepare("DELETE FROM referencias WHERE id=:id")->execute([':id' => $id]);
+            $db->prepare("UPDATE referencias_categoria SET ativo=0 WHERE id=:id")->execute([':id' => $id]);
             echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
             break;
 
@@ -113,7 +117,7 @@ try {
         // ═══════════════════════════════════════════════════════════════════
         case 'getTransacoesSemCategoria':
             $stmt = $db->query("
-                SELECT t.id, t.data, t.descricao, t.valor, t.tipo, t.mes_referencia
+                SELECT t.id, t.data, t.descricao, t.valor, t.tipo, t.mes_referencia, t.classificacao
                 FROM transacoes t
                 WHERE t.categoria_id IS NULL
                 ORDER BY t.data DESC
@@ -139,15 +143,30 @@ try {
             break;
 
         case 'aplicarRegras':
-            $refs  = $db->query("SELECT padrao, categoria_id FROM referencias ORDER BY confianca DESC")->fetchAll();
+            $refs  = $db->query("
+                SELECT padrao, categoria_id FROM referencias_categoria
+                WHERE ativo = 1
+                ORDER BY confianca DESC
+            ")->fetchAll();
+
             $total = 0;
             $stmt  = $db->prepare("
-                UPDATE transacoes SET categoria_id=:cat_id
+                UPDATE transacoes SET categoria_id=:cat
                 WHERE categoria_id IS NULL AND descricao LIKE :pat
             ");
+            $updTs = $db->prepare("
+                UPDATE referencias_categoria
+                SET usos = usos + :cnt, ultima_aplicacao = NOW()
+                WHERE padrao = :padrao
+            ");
+
             foreach ($refs as $r) {
-                $stmt->execute([':cat_id' => $r['categoria_id'], ':pat' => '%' . $r['padrao'] . '%']);
-                $total += $stmt->rowCount();
+                $stmt->execute([':cat' => $r['categoria_id'], ':pat' => '%' . $r['padrao'] . '%']);
+                $cnt = $stmt->rowCount();
+                if ($cnt > 0) {
+                    $total += $cnt;
+                    $updTs->execute([':cnt' => $cnt, ':padrao' => $r['padrao']]);
+                }
             }
             $sem = (int) $db->query("SELECT COUNT(*) FROM transacoes WHERE categoria_id IS NULL")->fetchColumn();
             echo json_encode(['success' => true, 'classificadas' => $total, 'sem_categoria' => $sem], JSON_UNESCAPED_UNICODE);
@@ -159,6 +178,34 @@ try {
             echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
             break;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // COMPROVANTES
+        // ═══════════════════════════════════════════════════════════════════
+        case 'getComprovantes':
+            $stmt = $db->query("
+                SELECT comp.*, 
+                       GROUP_CONCAT(t.descricao SEPARATOR ' | ') AS transacoes_vinculadas
+                FROM comprovantes comp
+                LEFT JOIN conciliacoes cc ON cc.comprovante_id = comp.id
+                LEFT JOIN transacoes t    ON t.id = cc.transacao_id
+                GROUP BY comp.id
+                ORDER BY comp.created_at DESC
+                LIMIT 100
+            ");
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll()], JSON_UNESCAPED_UNICODE);
+            break;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SALDOS MENSAIS
+        // ═══════════════════════════════════════════════════════════════════
+        case 'recalcularSaldo':
+            $mes = $data['mes'] ?? date('Y-m');
+            recalcularSaldo($db, $mes);
+            $row = $db->prepare("SELECT * FROM saldos_mensais WHERE mes_referencia=:mes LIMIT 1");
+            $row->execute([':mes' => $mes]);
+            echo json_encode(['success' => true, 'data' => $row->fetch()], JSON_UNESCAPED_UNICODE);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Ação inválida: ' . htmlspecialchars($action)], JSON_UNESCAPED_UNICODE);
@@ -167,4 +214,37 @@ try {
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+}
+
+// ── Helper ────────────────────────────────────────────────────────────────
+function recalcularSaldo(PDO $db, string $mes): void {
+    $stmt = $db->prepare("
+        SELECT
+            COALESCE(SUM(CASE WHEN tipo='credito' THEN valor END), 0) AS creditos,
+            COALESCE(SUM(CASE WHEN tipo='debito'  THEN valor END), 0) AS debitos
+        FROM transacoes WHERE mes_referencia = :mes
+    ");
+    $stmt->execute([':mes' => $mes]);
+    $row = $stmt->fetch();
+
+    $creditos = (float)$row['creditos'];
+    $debitos  = (float)$row['debitos'];
+
+    $db->prepare("
+        INSERT INTO saldos_mensais (mes_referencia, total_creditos, total_debitos, saldo_final)
+        VALUES (:mes, :cred, :deb, :saldo)
+        ON DUPLICATE KEY UPDATE
+            total_creditos = :cred2,
+            total_debitos  = :deb2,
+            saldo_final    = :saldo2,
+            updated_at     = NOW()
+    ")->execute([
+        ':mes'    => $mes,
+        ':cred'   => $creditos,
+        ':deb'    => $debitos,
+        ':saldo'  => $creditos - $debitos,
+        ':cred2'  => $creditos,
+        ':deb2'   => $debitos,
+        ':saldo2' => $creditos - $debitos,
+    ]);
 }

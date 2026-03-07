@@ -21,34 +21,44 @@ try {
 
     switch ($action) {
 
-        // ── summary ──────────────────────────────────────────────────────────
+        // ── summary ──────────────────────────────────────────────────────
         case 'summary':
             $stmt = $db->prepare("
                 SELECT
-                    COALESCE(SUM(CASE WHEN tipo='credito' THEN valor END), 0)                                              AS aportes,
+                    COALESCE(SUM(CASE WHEN tipo='credito' THEN valor END), 0)                                                   AS aportes,
                     COALESCE(SUM(CASE WHEN tipo='debito' AND (classificacao='aemf' OR classificacao IS NULL) THEN valor END), 0) AS despesas_aemf,
-                    COALESCE(SUM(CASE WHEN tipo='debito' AND classificacao='pf'   THEN valor END), 0)                      AS despesas_pf,
-                    COALESCE(SUM(CASE WHEN tipo='credito' THEN valor ELSE -valor END), 0)                                  AS saldo,
+                    COALESCE(SUM(CASE WHEN tipo='debito' AND classificacao='pf' THEN valor END), 0)                             AS despesas_pf,
+                    COALESCE(SUM(CASE WHEN tipo='credito' THEN valor ELSE -valor END), 0)                                       AS saldo,
                     COUNT(*) AS total_transacoes
                 FROM transacoes
                 WHERE mes_referencia = :mes
             ");
             $stmt->execute([':mes' => $month]);
-            echo json_encode(['success' => true, 'data' => $stmt->fetch()], JSON_UNESCAPED_UNICODE);
+            $summary = $stmt->fetch();
+
+            // Enrich with saldos_mensais if available
+            $smStmt = $db->prepare("SELECT * FROM saldos_mensais WHERE mes_referencia = :mes LIMIT 1");
+            $smStmt->execute([':mes' => $month]);
+            $sm = $smStmt->fetch() ?: [];
+
+            echo json_encode([
+                'success' => true,
+                'data'    => array_merge($summary ?: [], ['saldo_mensal' => $sm]),
+            ], JSON_UNESCAPED_UNICODE);
             break;
 
-        // ── transactions ─────────────────────────────────────────────────────
+        // ── transactions ─────────────────────────────────────────────────
         case 'transactions':
             $where  = ['t.mes_referencia = :mes'];
             $params = [':mes' => $month];
 
             if ($search !== '') {
-                $where[]            = 't.descricao LIKE :search';
-                $params[':search']  = '%' . $search . '%';
+                $where[]           = 't.descricao LIKE :search';
+                $params[':search'] = '%' . $search . '%';
             }
             if ($tipo !== '') {
-                $where[]           = 't.tipo = :tipo';
-                $params[':tipo']   = $tipo;
+                $where[]         = 't.tipo = :tipo';
+                $params[':tipo'] = $tipo;
             }
 
             $whereSQL = 'WHERE ' . implode(' AND ', $where);
@@ -60,8 +70,9 @@ try {
 
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.descricao, t.valor, t.tipo,
-                       t.classificacao, t.conciliado, t.beneficiario,
-                       c.nome AS categoria, c.cor AS categoria_cor
+                       t.classificacao, t.observacoes,
+                       c.nome AS categoria, c.cor AS categoria_cor,
+                       (SELECT COUNT(*) FROM conciliacoes cc WHERE cc.transacao_id = t.id) AS conciliado
                 FROM transacoes t
                 LEFT JOIN categorias c ON c.id = t.categoria_id
                 $whereSQL
@@ -84,7 +95,7 @@ try {
             ], JSON_UNESCAPED_UNICODE);
             break;
 
-        // ── chart — monthly bar for a year ───────────────────────────────────
+        // ── chart — monthly bar for a year ───────────────────────────────
         case 'chart':
             $stmt = $db->prepare("
                 SELECT
@@ -100,33 +111,30 @@ try {
             $stmt->execute([':ano' => $year]);
             $rows = $stmt->fetchAll();
 
-            // Fill all 12 months even if empty
-            $meses    = [];
-            $aportes  = [];
-            $despAemf = [];
-            $despPf   = [];
-            $map      = [];
+            $map = [];
             foreach ($rows as $r) { $map[$r['mes']] = $r; }
+
+            $meses = $aportes = $despAemf = $despPf = [];
             for ($m = 1; $m <= 12; $m++) {
                 $key = $year . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
-                $meses[]    = date('M', mktime(0,0,0,$m,1));
+                $meses[]    = date('M', mktime(0, 0, 0, $m, 1));
                 $aportes[]  = (float)($map[$key]['aportes']      ?? 0);
                 $despAemf[] = (float)($map[$key]['despesas_aemf'] ?? 0);
                 $despPf[]   = (float)($map[$key]['despesas_pf']   ?? 0);
             }
 
             echo json_encode([
-                'success' => true,
-                'labels'  => $meses,
+                'success'  => true,
+                'labels'   => $meses,
                 'datasets' => [
-                    ['label' => 'Aportes',        'data' => $aportes,  'color' => '#28a745'],
-                    ['label' => 'Despesas AEMF',  'data' => $despAemf, 'color' => '#17a2b8'],
-                    ['label' => 'Despesas PF',    'data' => $despPf,   'color' => '#dc3545'],
+                    ['label' => 'Aportes',       'data' => $aportes,  'color' => '#28a745'],
+                    ['label' => 'Despesas AEMF', 'data' => $despAemf, 'color' => '#17a2b8'],
+                    ['label' => 'Despesas PF',   'data' => $despPf,   'color' => '#dc3545'],
                 ],
             ], JSON_UNESCAPED_UNICODE);
             break;
 
-        // ── by-category ──────────────────────────────────────────────────────
+        // ── by-category ──────────────────────────────────────────────────
         case 'byCategory':
             $stmt = $db->prepare("
                 SELECT c.nome, c.tipo, c.cor,
@@ -142,7 +150,7 @@ try {
             echo json_encode(['success' => true, 'data' => $stmt->fetchAll()], JSON_UNESCAPED_UNICODE);
             break;
 
-        // ── available months ─────────────────────────────────────────────────
+        // ── available months ─────────────────────────────────────────────
         case 'months':
             $stmt = $db->query("
                 SELECT DISTINCT mes_referencia AS mes
@@ -152,6 +160,17 @@ try {
                 LIMIT 36
             ");
             echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_COLUMN)], JSON_UNESCAPED_UNICODE);
+            break;
+
+        // ── saldos mensais ────────────────────────────────────────────────
+        case 'saldosMensais':
+            $stmt = $db->prepare("
+                SELECT * FROM saldos_mensais
+                WHERE YEAR(STR_TO_DATE(CONCAT(mes_referencia, '-01'), '%Y-%m-%d')) = :ano
+                ORDER BY mes_referencia
+            ");
+            $stmt->execute([':ano' => $year]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll()], JSON_UNESCAPED_UNICODE);
             break;
 
         default:
