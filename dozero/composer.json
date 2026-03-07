@@ -1,0 +1,15 @@
+{
+    "name": "aemf/financial-system",
+    "description": "Sistema Financeiro AEMFPAR",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "smalot/pdfparser": "^2.0"
+    },
+    "config": {
+        "optimize-autoloader": true
+    },
+    "autoload": {
+        "psr-4": {}
+    }
+}

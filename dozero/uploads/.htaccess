@@ -1,0 +1,11 @@
+# Impede execução de scripts no diretório de uploads
+Options -ExecCGI
+AddHandler cgi-script .php .phtml .php3 .php4 .php5 .pl .py
+RemoveHandler .php .phtml .php3 .php4 .php5 .pl .py .cgi
+php_flag engine off
+
+# Negar acesso a arquivos PHP
+<FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|cgi)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>

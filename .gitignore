@@ -1,0 +1,19 @@
+# Arquivos temporários de upload — ignora conteúdo, mas mantém estrutura de diretórios
+uploads/*
+!uploads/.htaccess
+!uploads/.gitkeep
+uploads/comprovantes/*
+!uploads/comprovantes/.htaccess
+!uploads/comprovantes/.gitkeep
+uploads/transacoes/*
+!uploads/transacoes/.htaccess
+!uploads/transacoes/.gitkeep
+temp/
+
+# Configurações locais
+.env
+*.local
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
