@@ -11,3 +11,15 @@ function requireLogin(): void {
         exit;
     }
 }
+
+function requireAdmin(): void {
+    requireLogin();
+    if (($_SESSION['role'] ?? '') !== 'admin') {
+        header('Location: index.php?erro=acesso');
+        exit;
+    }
+}
+
+function isAdmin(): bool {
+    return ($_SESSION['role'] ?? '') === 'admin';
+}

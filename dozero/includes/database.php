@@ -40,10 +40,34 @@ function setupSchema(PDO $db): void {
     $done = true;
 
     try {
+        // ── usuarios ──────────────────────────────────────────────────────
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id         INT          AUTO_INCREMENT PRIMARY KEY,
+                username   VARCHAR(50)  NOT NULL UNIQUE,
+                password   VARCHAR(255) NOT NULL,
+                role       ENUM('admin','user') DEFAULT 'user',
+                ativo      TINYINT(1)   DEFAULT 1,
+                created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        // Seed default users (idempotent)
+        $cnt = (int) $db->query("SELECT COUNT(*) FROM usuarios")->fetchColumn();
+        if ($cnt === 0) {
+            $hashAdmin = password_hash('R_valdrez23', PASSWORD_BCRYPT);
+            $hashUser  = password_hash('moraes123',   PASSWORD_BCRYPT);
+            $db->prepare("
+                INSERT IGNORE INTO usuarios (username, password, role) VALUES
+                (:u1, :p1, 'admin'),
+                (:u2, :p2, 'user')
+            ")->execute([':u1' => 'admin', ':p1' => $hashAdmin, ':u2' => 'antonio', ':p2' => $hashUser]);
+        }
+
         // ── categorias ────────────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS categorias (
-                id         INT      AUTO_INCREMENT PRIMARY KEY,
+                id         INT          AUTO_INCREMENT PRIMARY KEY,
                 nome       VARCHAR(100) NOT NULL,
                 tipo       ENUM('receita','despesa_aemf','despesa_pf') NOT NULL,
                 grupo      VARCHAR(50)  DEFAULT NULL,
@@ -81,19 +105,19 @@ function setupSchema(PDO $db): void {
         // ── transacoes ───────────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS transacoes (
-                id               INT       AUTO_INCREMENT PRIMARY KEY,
-                data             DATE          NOT NULL,
-                descricao        VARCHAR(500)  NOT NULL,
+                id               INT          AUTO_INCREMENT PRIMARY KEY,
+                data             DATE         NOT NULL,
+                descricao        VARCHAR(500) NOT NULL,
                 valor            DECIMAL(15,2) NOT NULL,
                 tipo             ENUM('credito','debito') NOT NULL,
-                categoria_id     INT       DEFAULT NULL,
+                categoria_id     INT          DEFAULT NULL,
                 classificacao    ENUM('aemf','pf','receita') DEFAULT NULL,
-                mes_referencia   VARCHAR(7)    NOT NULL,
-                documento_origem VARCHAR(255)  DEFAULT NULL,
-                hash_unico       VARCHAR(64)   NOT NULL UNIQUE,
-                observacoes      TEXT          DEFAULT NULL,
-                created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-                updated_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                mes_referencia   VARCHAR(7)   NOT NULL,
+                documento_origem VARCHAR(255) DEFAULT NULL,
+                hash_unico       VARCHAR(64)  NOT NULL UNIQUE,
+                observacoes      TEXT         DEFAULT NULL,
+                created_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                updated_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL,
                 INDEX idx_data (data),
                 INDEX idx_mes  (mes_referencia)
@@ -103,29 +127,36 @@ function setupSchema(PDO $db): void {
         // ── comprovantes ────────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS comprovantes (
-                id               INT       AUTO_INCREMENT PRIMARY KEY,
-                nome_arquivo     VARCHAR(255)  NOT NULL,
-                tipo_documento   VARCHAR(50)   DEFAULT NULL,
-                data_documento   DATE          DEFAULT NULL,
+                id               INT          AUTO_INCREMENT PRIMARY KEY,
+                nome_arquivo     VARCHAR(255) NOT NULL,
+                descricao        VARCHAR(500) DEFAULT NULL,
+                tipo_documento   VARCHAR(50)  DEFAULT NULL,
+                data_documento   DATE         DEFAULT NULL,
                 valor_documento  DECIMAL(12,2) DEFAULT NULL,
-                hash_arquivo     VARCHAR(64)   NOT NULL,
-                caminho_arquivo  VARCHAR(500)  DEFAULT NULL,
-                processado       TINYINT(1)    DEFAULT 0,
-                created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+                hash_arquivo     VARCHAR(64)  NOT NULL,
+                caminho_arquivo  VARCHAR(500) DEFAULT NULL,
+                processado       TINYINT(1)   DEFAULT 0,
+                created_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY uq_hash (hash_arquivo)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
+        // Add descricao column to existing comprovantes table if absent
+        $cols = $db->query("SHOW COLUMNS FROM comprovantes LIKE 'descricao'")->fetchAll();
+        if (empty($cols)) {
+            $db->exec("ALTER TABLE comprovantes ADD COLUMN descricao VARCHAR(500) DEFAULT NULL AFTER nome_arquivo");
+        }
+
         // ── conciliacoes ─────────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS conciliacoes (
-                id             INT       AUTO_INCREMENT PRIMARY KEY,
-                transacao_id   INT       NOT NULL,
-                comprovante_id INT       NOT NULL,
+                id             INT          AUTO_INCREMENT PRIMARY KEY,
+                transacao_id   INT          NOT NULL,
+                comprovante_id INT          NOT NULL,
                 status         ENUM('automatica','manual','revisao') DEFAULT 'revisao',
-                confianca      DECIMAL(3,2)  DEFAULT 0.00,
-                observacoes    TEXT          DEFAULT NULL,
-                created_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+                confianca      DECIMAL(3,2) DEFAULT 0.00,
+                observacoes    TEXT         DEFAULT NULL,
+                created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (transacao_id)   REFERENCES transacoes(id)    ON DELETE CASCADE,
                 FOREIGN KEY (comprovante_id) REFERENCES comprovantes(id)  ON DELETE CASCADE,
                 UNIQUE KEY uq_tx_comp (transacao_id, comprovante_id)
@@ -135,17 +166,17 @@ function setupSchema(PDO $db): void {
         // ── referencias_categoria ────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS referencias_categoria (
-                id               INT       AUTO_INCREMENT PRIMARY KEY,
-                padrao           VARCHAR(255)  NOT NULL,
-                categoria_id     INT       DEFAULT NULL,
-                tipo_transacao   VARCHAR(50)   DEFAULT NULL,
-                confianca        DECIMAL(3,2)  DEFAULT 1.00,
-                usos             INT       DEFAULT 0,
-                ultima_aplicacao DATETIME      DEFAULT NULL,
-                observacoes      TEXT          DEFAULT NULL,
-                ativo            TINYINT(1)    DEFAULT 1,
-                created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-                updated_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                id               INT          AUTO_INCREMENT PRIMARY KEY,
+                padrao           VARCHAR(255) NOT NULL,
+                categoria_id     INT          DEFAULT NULL,
+                tipo_transacao   VARCHAR(50)  DEFAULT NULL,
+                confianca        DECIMAL(3,2) DEFAULT 1.00,
+                usos             INT          DEFAULT 0,
+                ultima_aplicacao DATETIME     DEFAULT NULL,
+                observacoes      TEXT         DEFAULT NULL,
+                ativo            TINYINT(1)   DEFAULT 1,
+                created_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                updated_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE,
                 INDEX idx_padrao (padrao)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -187,14 +218,14 @@ function setupSchema(PDO $db): void {
         // ── saldos_mensais ───────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS saldos_mensais (
-                id             INT       AUTO_INCREMENT PRIMARY KEY,
-                mes_referencia VARCHAR(7)    NOT NULL,
+                id             INT          AUTO_INCREMENT PRIMARY KEY,
+                mes_referencia VARCHAR(7)   NOT NULL,
                 saldo_inicial  DECIMAL(15,2) DEFAULT 0.00,
                 total_creditos DECIMAL(15,2) DEFAULT 0.00,
                 total_debitos  DECIMAL(15,2) DEFAULT 0.00,
                 saldo_final    DECIMAL(15,2) DEFAULT 0.00,
-                created_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-                updated_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                updated_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE KEY uq_mes (mes_referencia)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");

@@ -7,6 +7,7 @@ ini_set('log_errors', 1);
 
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/database.php';
+require_once dirname(__DIR__) . '/includes/utils.php';
 
 $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 $input  = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -201,9 +202,16 @@ try {
         case 'recalcularSaldo':
             $mes = $data['mes'] ?? date('Y-m');
             recalcularSaldo($db, $mes);
+            recalcularCascata($db);
             $row = $db->prepare("SELECT * FROM saldos_mensais WHERE mes_referencia=:mes LIMIT 1");
             $row->execute([':mes' => $mes]);
             echo json_encode(['success' => true, 'data' => $row->fetch()], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'recalcularCascata':
+            recalcularCascata($db);
+            $rows = $db->query("SELECT * FROM saldos_mensais ORDER BY mes_referencia")->fetchAll();
+            echo json_encode(['success' => true, 'data' => $rows], JSON_UNESCAPED_UNICODE);
             break;
 
         default:
@@ -236,7 +244,6 @@ function recalcularSaldo(PDO $db, string $mes): void {
         ON DUPLICATE KEY UPDATE
             total_creditos = :cred2,
             total_debitos  = :deb2,
-            saldo_final    = :saldo2,
             updated_at     = NOW()
     ")->execute([
         ':mes'    => $mes,
@@ -245,6 +252,6 @@ function recalcularSaldo(PDO $db, string $mes): void {
         ':saldo'  => $creditos - $debitos,
         ':cred2'  => $creditos,
         ':deb2'   => $debitos,
-        ':saldo2' => $creditos - $debitos,
     ]);
 }
+

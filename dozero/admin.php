@@ -1,7 +1,7 @@
 <?php
-// dozero/admin.php — Painel Administrativo
+// dozero/admin.php — Painel Administrativo (somente admin)
 require_once __DIR__ . '/includes/auth.php';
-requireLogin();
+requireAdmin();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

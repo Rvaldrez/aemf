@@ -1,26 +1,36 @@
 <?php
-// dozero/acesso.php — autenticação
+// dozero/acesso.php — autenticação via banco de dados
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Senhas armazenadas como hashes bcrypt (use password_hash() para gerar novos hashes)
-$usuarios = [
-    'antonio' => password_hash('moraes123', PASSWORD_BCRYPT),
-    'admin'   => password_hash('admin123',  PASSWORD_BCRYPT),
-];
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $usuario = trim($_POST['username'] ?? '');
-    $senha   = $_POST['password'] ?? '';
+    require_once __DIR__ . '/includes/config.php';
+    require_once __DIR__ . '/includes/database.php';
 
-    if (isset($usuarios[$usuario]) && password_verify($senha, $usuarios[$usuario])) {
-        session_regenerate_id(true);
-        $_SESSION['logado']  = true;
-        $_SESSION['usuario'] = $usuario;
-        header('Location: index.php');
-    } else {
-        header('Location: login.php?erro=1');
+    $username = trim($_POST['username'] ?? '');
+    $senha    = $_POST['password'] ?? '';
+
+    if ($username !== '' && $senha !== '') {
+        try {
+            $db   = getDB();
+            $stmt = $db->prepare("SELECT id, password, role FROM usuarios WHERE username = :u AND ativo = 1 LIMIT 1");
+            $stmt->execute([':u' => $username]);
+            $user = $stmt->fetch();
+
+            if ($user && password_verify($senha, $user['password'])) {
+                session_regenerate_id(true);
+                $_SESSION['logado']  = true;
+                $_SESSION['usuario'] = $username;
+                $_SESSION['role']    = $user['role'];
+                header('Location: index.php');
+                exit;
+            }
+        } catch (Throwable $e) {
+            error_log('acesso.php error: ' . $e->getMessage());
+        }
     }
+
+    header('Location: login.php?erro=1');
     exit;
 }
 

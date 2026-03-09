@@ -1,7 +1,7 @@
 <?php
-// dozero/upload.php — Importação de extratos e comprovantes
+// dozero/upload.php — Importação de extratos e comprovantes (somente admin)
 require_once __DIR__ . '/includes/auth.php';
-requireLogin();
+requireAdmin();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

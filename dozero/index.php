@@ -2,7 +2,7 @@
 // dozero/index.php — Dashboard principal AEMFPAR
 require_once __DIR__ . '/includes/auth.php';
 requireLogin();
-$currentMonth = date('Y-m');
+$isAdmin = isAdmin();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -36,7 +36,7 @@ nav{background:var(--primary);color:#fff;padding:0 24px;display:flex;align-items
 /* ── TOOLBAR ── */
 .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
 .toolbar h2{font-size:22px;color:var(--primary);font-weight:700}
-.toolbar-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.toolbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 select,input[type=month]{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:#495057;outline:none;background:#fff;cursor:pointer}
 select:focus,input[type=month]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,125,210,.12)}
 .btn{padding:8px 18px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.2s;text-decoration:none}
@@ -44,6 +44,11 @@ select:focus,input[type=month]:focus{border-color:var(--accent);box-shadow:0 0 0
 .btn-primary:hover{background:#1a68ba}
 .btn-success{background:var(--success);color:#fff}
 .btn-success:hover{background:#1e7e34}
+
+/* ── Period Toggle ── */
+.period-toggle{display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+.period-toggle button{padding:7px 16px;border:none;background:transparent;cursor:pointer;font-size:14px;color:#495057;transition:.15s;white-space:nowrap}
+.period-toggle button.active{background:var(--accent);color:#fff}
 
 /* ── CARDS ── */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:28px}
@@ -53,11 +58,13 @@ select:focus,input[type=month]:focus{border-color:var(--accent);box-shadow:0 0 0
 .card.blue::before{background:var(--info)}
 .card.red::before{background:var(--danger)}
 .card.teal::before{background:var(--accent)}
+.card.grey::before{background:var(--muted)}
 .card-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .card.green .card-icon{background:#e8f5e9;color:var(--success)}
 .card.blue .card-icon{background:#e3f2fd;color:var(--info)}
 .card.red .card-icon{background:#fdecea;color:var(--danger)}
 .card.teal .card-icon{background:#e8f4f8;color:var(--accent)}
+.card.grey .card-icon{background:#f3f3f3;color:var(--muted)}
 .card-body .label{font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
 .card-body .value{font-size:26px;font-weight:700;color:#212529;line-height:1}
 .card-body .value.loading{font-size:18px;color:#adb5bd}
@@ -75,14 +82,7 @@ select:focus,input[type=month]:focus{border-color:var(--accent);box-shadow:0 0 0
 
 /* ── CHART ── */
 .chart-wrap{position:relative;height:300px}
-
-/* ── CATEGORY LIST ── */
-.cat-list{list-style:none;max-height:295px;overflow-y:auto}
-.cat-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f3f3f3}
-.cat-item:last-child{border-bottom:none}
-.cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:10px}
-.cat-name{font-size:14px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cat-val{font-size:14px;font-weight:600;color:#333;white-space:nowrap}
+.pie-wrap{position:relative;height:280px;display:flex;align-items:center;justify-content:center}
 
 /* ── TABLE ── */
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
@@ -107,6 +107,8 @@ tbody tr:last-child td{border-bottom:none}
 .text-muted{color:#adb5bd;font-style:italic}
 .valor-credito{color:#28a745;font-weight:600}
 .valor-debito{color:#dc3545;font-weight:600}
+.desc-comp{color:var(--primary);font-weight:500}
+.desc-tag{display:inline-block;font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px;margin-left:4px;vertical-align:middle}
 
 /* ── PAGINATION ── */
 .pagination{display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:10px}
@@ -127,6 +129,13 @@ tbody tr:last-child td{border-bottom:none}
 .alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
 .alert-danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
 
+/* ── Cash-flow banner ── */
+.cashflow{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:16px 24px;margin-bottom:24px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:15px;color:#333}
+.cashflow .cf-item{display:flex;flex-direction:column;align-items:center;min-width:120px}
+.cashflow .cf-label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:2px}
+.cashflow .cf-val{font-weight:700;font-size:17px}
+.cashflow .cf-arrow{font-size:20px;color:var(--border);padding:0 4px}
+
 @media(max-width:600px){
     .main{padding:16px}
     .cards{grid-template-columns:1fr 1fr}
@@ -142,8 +151,10 @@ tbody tr:last-child td{border-bottom:none}
     <div class="nav-brand"><i class="fa-solid fa-building-columns"></i> AEMFPAR</div>
     <div class="nav-links">
         <a href="index.php" class="active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+        <?php if ($isAdmin): ?>
         <a href="upload.php"><i class="fa-solid fa-upload"></i> Importar</a>
         <a href="admin.php"><i class="fa-solid fa-sliders"></i> Administração</a>
+        <?php endif; ?>
     </div>
     <div class="nav-user">
         <span><i class="fa-solid fa-circle-user"></i> <?= htmlspecialchars($_SESSION['usuario'] ?? '') ?></span>
@@ -158,48 +169,84 @@ tbody tr:last-child td{border-bottom:none}
     <div class="toolbar">
         <h2><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Painel Financeiro</h2>
         <div class="toolbar-right">
-            <label style="font-size:13px;color:#666">Período:</label>
-            <input type="month" id="monthPicker" value="<?= $currentMonth ?>">
-            <select id="yearPicker" title="Ano para o gráfico"></select>
+            <div class="period-toggle">
+                <button id="btnMensal" class="active" onclick="setPeriod('mensal')"><i class="fa-solid fa-calendar-day"></i> Mensal</button>
+                <button id="btnAnual" onclick="setPeriod('anual')"><i class="fa-solid fa-calendar"></i> Anual</button>
+            </div>
+            <div id="periodoMensal" style="display:flex;align-items:center;gap:8px">
+                <label style="font-size:13px;color:#666">Mês:</label>
+                <input type="month" id="monthPicker" value="">
+            </div>
+            <div id="periodoAnual" style="display:none;align-items:center;gap:8px">
+                <label style="font-size:13px;color:#666">Ano:</label>
+                <select id="yearPicker" title="Ano"></select>
+            </div>
+            <?php if ($isAdmin): ?>
             <a href="upload.php" class="btn btn-success"><i class="fa-solid fa-upload"></i> Importar</a>
+            <?php endif; ?>
         </div>
     </div>
 
     <!-- ALERT -->
     <div class="alert alert-danger" id="alertBox"></div>
 
+    <!-- CASH FLOW BANNER -->
+    <div class="cashflow" id="cashflowBanner">
+        <div class="cf-item">
+            <span class="cf-label">Saldo Inicial</span>
+            <span class="cf-val" id="cf-inicial"><div class="spinner"></div></span>
+        </div>
+        <div class="cf-arrow">+</div>
+        <div class="cf-item">
+            <span class="cf-label">Entradas</span>
+            <span class="cf-val" style="color:var(--success)" id="cf-entradas"><div class="spinner"></div></span>
+        </div>
+        <div class="cf-arrow">−</div>
+        <div class="cf-item">
+            <span class="cf-label">Saídas</span>
+            <span class="cf-val" style="color:var(--danger)" id="cf-saidas"><div class="spinner"></div></span>
+        </div>
+        <div class="cf-arrow">=</div>
+        <div class="cf-item">
+            <span class="cf-label">Saldo Final</span>
+            <span class="cf-val" id="cf-final"><div class="spinner"></div></span>
+        </div>
+        <div style="flex:1"></div>
+        <div style="font-size:12px;color:var(--muted)" id="cf-periodo"></div>
+    </div>
+
     <!-- SUMMARY CARDS -->
     <div class="cards" id="cardsArea">
         <div class="card green">
             <div class="card-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
             <div class="card-body">
-                <div class="label">Aportes / Receitas</div>
+                <div class="label">Entradas</div>
                 <div class="value loading" id="val-aportes"><div class="spinner"></div></div>
                 <div class="sub" id="sub-aportes">&nbsp;</div>
             </div>
         </div>
-        <div class="card blue">
-            <div class="card-icon"><i class="fa-solid fa-building"></i></div>
+        <div class="card red">
+            <div class="card-icon"><i class="fa-solid fa-arrow-trend-down"></i></div>
             <div class="card-body">
-                <div class="label">Despesas AEMF</div>
-                <div class="value loading" id="val-aemf"><div class="spinner"></div></div>
-                <div class="sub" id="sub-aemf">&nbsp;</div>
+                <div class="label">Saídas</div>
+                <div class="value loading" id="val-saidas"><div class="spinner"></div></div>
+                <div class="sub" id="sub-saidas">&nbsp;</div>
             </div>
         </div>
-        <div class="card red">
-            <div class="card-icon"><i class="fa-solid fa-user"></i></div>
+        <div class="card grey">
+            <div class="card-icon"><i class="fa-solid fa-wallet"></i></div>
             <div class="card-body">
-                <div class="label">Despesas PF</div>
-                <div class="value loading" id="val-pf"><div class="spinner"></div></div>
-                <div class="sub" id="sub-pf">&nbsp;</div>
+                <div class="label">Saldo Inicial</div>
+                <div class="value loading" id="val-sinicial"><div class="spinner"></div></div>
+                <div class="sub" id="sub-sinicial">&nbsp;</div>
             </div>
         </div>
         <div class="card teal">
             <div class="card-icon"><i class="fa-solid fa-scale-balanced"></i></div>
             <div class="card-body">
-                <div class="label">Saldo do Período</div>
-                <div class="value loading" id="val-saldo"><div class="spinner"></div></div>
-                <div class="sub" id="sub-saldo">&nbsp;</div>
+                <div class="label">Saldo Final</div>
+                <div class="value loading" id="val-sfinal"><div class="spinner"></div></div>
+                <div class="sub" id="sub-sfinal">&nbsp;</div>
             </div>
         </div>
     </div>
@@ -208,8 +255,8 @@ tbody tr:last-child td{border-bottom:none}
     <div class="grid-2">
         <div class="panel">
             <div class="panel-header">
-                <h3><i class="fa-solid fa-chart-bar" style="color:var(--accent)"></i> Movimentação Anual</h3>
-                <span id="chartYear" style="font-size:13px;color:var(--muted)"></span>
+                <h3><i class="fa-solid fa-chart-bar" style="color:var(--accent)"></i> Movimentação</h3>
+                <span id="chartLabel" style="font-size:13px;color:var(--muted)"></span>
             </div>
             <div class="panel-body">
                 <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
@@ -217,13 +264,12 @@ tbody tr:last-child td{border-bottom:none}
         </div>
         <div class="panel">
             <div class="panel-header">
-                <h3><i class="fa-solid fa-tags" style="color:var(--accent)"></i> Por Categoria</h3>
-                <span id="catMonth" style="font-size:13px;color:var(--muted)"></span>
+                <h3><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Por Categoria</h3>
+                <span id="catPeriodo" style="font-size:13px;color:var(--muted)"></span>
             </div>
-            <div class="panel-body" style="padding:10px 22px">
-                <ul class="cat-list" id="catList">
-                    <li style="text-align:center;padding:20px;color:var(--muted)"><div class="spinner"></div></li>
-                </ul>
+            <div class="panel-body" style="padding:10px 14px">
+                <div class="pie-wrap"><canvas id="pieChart"></canvas></div>
+                <div id="pieLegend" style="font-size:12px;margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center"></div>
             </div>
         </div>
     </div>
@@ -281,22 +327,42 @@ tbody tr:last-child td{border-bottom:none}
 // ═══════════════════════════════════════════════════════════════════════════
 const fmt = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtDate = d => d ? d.split('-').reverse().join('/') : '';
-const monthLabel = m => { if (!m) return ''; const [y,mo]=m.split('-'); return new Date(+y,+mo-1,1).toLocaleString('pt-BR',{month:'long',year:'numeric'}); };
+const monthLabel = m => {
+    if (!m) return '';
+    const [y, mo] = m.split('-');
+    return new Date(+y, +mo - 1, 1).toLocaleString('pt-BR', {month: 'long', year: 'numeric'});
+};
 const API_DASH  = 'api/dashboard.php';
 const API_ADMIN = 'api/admin.php';
 
 let chartInstance = null;
-let txPage = 1;
-let txTotalPages = 1;
-let searchTimer = null;
+let pieInstance   = null;
+let txPage        = 1;
+let txTotalPages  = 1;
+let searchTimer   = null;
+let periodMode    = 'mensal'; // 'mensal' | 'anual'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Month / Year pickers
+// Period control
 // ═══════════════════════════════════════════════════════════════════════════
-(function initYearPicker(){
+function setPeriod(mode) {
+    periodMode = mode;
+    document.getElementById('btnMensal').classList.toggle('active', mode === 'mensal');
+    document.getElementById('btnAnual').classList.toggle('active', mode === 'anual');
+    document.getElementById('periodoMensal').style.display = mode === 'mensal' ? 'flex' : 'none';
+    document.getElementById('periodoAnual').style.display  = mode === 'anual'  ? 'flex' : 'none';
+    txPage = 1;
+    loadAll();
+}
+
+function getMonth() { return document.getElementById('monthPicker').value; }
+function getYear()  { return document.getElementById('yearPicker').value; }
+
+// Build year picker
+(function initYearPicker() {
     const sel = document.getElementById('yearPicker');
     const cur = new Date().getFullYear();
-    for(let y = cur; y >= cur-5; y--){
+    for (let y = cur; y >= cur - 5; y--) {
         const o = document.createElement('option');
         o.value = y; o.textContent = y;
         sel.appendChild(o);
@@ -304,13 +370,23 @@ let searchTimer = null;
     sel.value = cur;
 })();
 
-document.getElementById('monthPicker').addEventListener('change', () => {
-    txPage = 1;
+// Load most recent month, then kick off dashboard
+async function init() {
+    try {
+        const j = await fetchJSON(`${API_DASH}?action=latestMonth`);
+        if (j.mes) {
+            document.getElementById('monthPicker').value = j.mes;
+        } else {
+            document.getElementById('monthPicker').value = new Date().toISOString().slice(0, 7);
+        }
+    } catch (e) {
+        document.getElementById('monthPicker').value = new Date().toISOString().slice(0, 7);
+    }
     loadAll();
-});
-document.getElementById('yearPicker').addEventListener('change', () => {
-    loadChart();
-});
+}
+
+document.getElementById('monthPicker').addEventListener('change', () => { txPage = 1; loadAll(); });
+document.getElementById('yearPicker').addEventListener('change', () => { txPage = 1; loadAll(); });
 document.getElementById('searchInput').addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => { txPage = 1; loadTransactions(); }, 400);
@@ -320,76 +396,102 @@ document.getElementById('tipoFilter').addEventListener('change', () => { txPage 
 // ═══════════════════════════════════════════════════════════════════════════
 // Load everything
 // ═══════════════════════════════════════════════════════════════════════════
-function getMonth(){ return document.getElementById('monthPicker').value; }
-function getYear() { return document.getElementById('yearPicker').value; }
-
-async function fetchJSON(url){
+async function fetchJSON(url) {
     const r = await fetch(url);
-    if(!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
-    if(j.error) throw new Error(j.error);
+    if (j.error) throw new Error(j.error);
     return j;
 }
 
-function showError(msg){
+function showError(msg) {
     const a = document.getElementById('alertBox');
     a.textContent = '⚠ ' + msg;
     a.style.display = 'block';
     setTimeout(() => a.style.display = 'none', 6000);
 }
 
-function loadAll(){
+function loadAll() {
     loadSummary();
     loadTransactions();
     loadCategories();
     loadChart();
 }
 
-// ── Summary cards ─────────────────────────────────────────────────────────
-async function loadSummary(){
-    const ids = ['val-aportes','val-aemf','val-pf','val-saldo'];
-    ids.forEach(id => document.getElementById(id).innerHTML = '<div class="spinner"></div>');
+// ── Summary cards + cash-flow banner ─────────────────────────────────────
+async function loadSummary() {
+    ['val-aportes','val-saidas','val-sinicial','val-sfinal',
+     'cf-inicial','cf-entradas','cf-saidas','cf-final'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="spinner"></div>';
+    });
 
     try {
-        const j = await fetchJSON(`${API_DASH}?action=summary&month=${getMonth()}`);
+        let j;
+        if (periodMode === 'mensal') {
+            j = await fetchJSON(`${API_DASH}?action=summary&month=${getMonth()}`);
+            document.getElementById('cf-periodo').textContent = monthLabel(getMonth());
+        } else {
+            j = await fetchJSON(`${API_DASH}?action=annualSummary&year=${getYear()}`);
+            document.getElementById('cf-periodo').textContent = 'Ano ' + getYear();
+        }
         const d = j.data || {};
 
-        const set = (id, val, cls) => {
-            const el = document.getElementById(id);
-            el.className = 'value ' + (cls || '');
-            el.textContent = fmt(val);
-        };
+        const si = parseFloat(d.saldo_inicial  || 0);
+        const c  = parseFloat(d.total_creditos || 0);
+        const de = parseFloat(d.total_debitos  || 0);
+        const sf = parseFloat(d.saldo_final    || si + c - de);
 
-        set('val-aportes', d.aportes,      '');
-        set('val-aemf',    d.despesas_aemf,'');
-        set('val-pf',      d.despesas_pf,  '');
+        // Cards
+        document.getElementById('val-aportes').className  = 'value';
+        document.getElementById('val-aportes').textContent = fmt(c);
+        document.getElementById('sub-aportes').textContent = (d.total_transacoes || 0) + ' lançamentos';
 
-        const saldo = parseFloat(d.saldo || 0);
-        const elS = document.getElementById('val-saldo');
-        elS.className = 'value';
-        elS.textContent = fmt(saldo);
-        elS.style.color = saldo >= 0 ? '#28a745' : '#dc3545';
+        document.getElementById('val-saidas').className   = 'value';
+        document.getElementById('val-saidas').textContent = fmt(de);
+        document.getElementById('sub-saidas').textContent = '';
 
-        document.getElementById('sub-aportes').textContent = monthLabel(getMonth());
-        document.getElementById('sub-aemf').textContent    = d.total_transacoes + ' transações';
-        document.getElementById('sub-pf').textContent      = monthLabel(getMonth());
-        document.getElementById('sub-saldo').textContent   = saldo >= 0 ? 'Positivo ▲' : 'Negativo ▼';
-    } catch(e){
+        document.getElementById('val-sinicial').className   = 'value';
+        document.getElementById('val-sinicial').textContent = fmt(si);
+        document.getElementById('sub-sinicial').textContent = 'saldo do mês anterior';
+
+        const elSF = document.getElementById('val-sfinal');
+        elSF.className = 'value';
+        elSF.textContent = fmt(sf);
+        elSF.style.color = sf >= 0 ? '#28a745' : '#dc3545';
+        document.getElementById('sub-sfinal').textContent = sf >= 0 ? 'Positivo ▲' : 'Negativo ▼';
+
+        // Cash-flow banner
+        document.getElementById('cf-inicial').textContent   = fmt(si);
+        document.getElementById('cf-entradas').textContent  = fmt(c);
+        document.getElementById('cf-saidas').textContent    = fmt(de);
+        const elCFf = document.getElementById('cf-final');
+        elCFf.textContent  = fmt(sf);
+        elCFf.style.color  = sf >= 0 ? '#28a745' : '#dc3545';
+
+    } catch (e) {
         showError('Erro ao carregar resumo: ' + e.message);
-        ids.forEach(id => document.getElementById(id).innerHTML = '<span style="color:#aaa;font-size:14px">—</span>');
     }
 }
 
 // ── Transactions table ────────────────────────────────────────────────────
-async function loadTransactions(){
+async function loadTransactions() {
     const body = document.getElementById('txBody');
     body.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div> Carregando…</td></tr>';
     document.getElementById('txCount').textContent = '';
 
     const search = encodeURIComponent(document.getElementById('searchInput').value.trim());
     const tipo   = document.getElementById('tipoFilter').value;
-    const url    = `${API_DASH}?action=transactions&month=${getMonth()}&page=${txPage}&limit=10` +
-                   (search ? `&search=${search}` : '') + (tipo ? `&tipo=${tipo}` : '');
+
+    let url;
+    if (periodMode === 'mensal') {
+        url = `${API_DASH}?action=transactions&month=${getMonth()}&page=${txPage}&limit=10` +
+              (search ? `&search=${search}` : '') + (tipo ? `&tipo=${tipo}` : '');
+    } else {
+        url = `${API_DASH}?action=annualTransactions&year=${getYear()}&page=${txPage}&limit=10` +
+              (search ? `&search=${search}` : '') + (tipo ? `&tipo=${tipo}` : '');
+    }
+
     try {
         const j = await fetchJSON(url);
         const rows = j.data || [];
@@ -397,27 +499,40 @@ async function loadTransactions(){
 
         document.getElementById('txCount').textContent = j.total + ' transações';
         document.getElementById('txInfo').textContent  =
-            `Exibindo ${rows.length} de ${j.total} — Página ${j.page} de ${Math.max(1,j.pages)}`;
+            `Exibindo ${rows.length} de ${j.total} — Página ${j.page} de ${Math.max(1, j.pages)}`;
 
-        if(rows.length === 0){
+        if (rows.length === 0) {
             body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#adb5bd"><i class="fa-solid fa-inbox"></i> Nenhuma transação encontrada.</td></tr>';
         } else {
             body.innerHTML = rows.map(t => {
                 const v   = parseFloat(t.valor);
                 const cls = t.tipo === 'credito' ? 'valor-credito' : 'valor-debito';
                 const sig = t.tipo === 'credito' ? '+' : '-';
+
                 const catDot = t.categoria_cor
                     ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(t.categoria_cor)};margin-right:5px"></span>` : '';
                 const cat = t.categoria
                     ? `${catDot}<span style="font-size:13px">${esc(t.categoria)}</span>`
                     : '<span class="text-muted">—</span>';
                 const classif = classBadge(t.classificacao);
+
+                // Req 1: show comprovante description if available, with indicator
+                // esc() converts " → &quot; making it safe in HTML attribute context
+                const descText   = esc(t.descricao);
+                const rawExtrato = esc(t.descricao_extrato || '');
+                const hasComp    = t.descricao_comprovante && t.descricao_comprovante.trim() !== '';
+                const descEl = hasComp
+                    ? `<span class="desc-comp" title="Extrato: ${rawExtrato}">${descText}</span><span class="desc-tag"><i class="fa-solid fa-file-pdf"></i> comprovante</span>`
+                    : `<span title="${rawExtrato}">${descText}</span>`;
+
                 const conc = parseInt(t.conciliado) > 0
                     ? '<span class="badge badge-ok"><i class="fa-solid fa-check"></i></span>'
                     : '<span style="color:#ddd">—</span>';
+
+                const mes = t.mes_referencia ? `<br><span style="font-size:11px;color:var(--muted)">${t.mes_referencia}</span>` : '';
                 return `<tr>
-                    <td style="white-space:nowrap">${fmtDate(t.data)}</td>
-                    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.descricao)}">${esc(t.descricao)}</td>
+                    <td style="white-space:nowrap">${fmtDate(t.data)}${periodMode==='anual'?mes:''}</td>
+                    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descEl}</td>
                     <td>${cat}</td>
                     <td>${classif}</td>
                     <td style="text-align:right" class="${cls}">${sig} ${fmt(v)}</td>
@@ -428,22 +543,24 @@ async function loadTransactions(){
         }
 
         renderPagination(j.page, j.pages, j.total);
-    } catch(e){
+    } catch (e) {
         body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc3545">Erro: ${e.message}</td></tr>`;
         showError('Erro ao carregar transações: ' + e.message);
     }
 }
 
-function classBadge(c){
-    const map = {aemf:'badge-aemf',pf:'badge-pf',receita:'badge-receita'};
-    const label = {aemf:'AEMF',pf:'Pessoa Física',receita:'Receita'};
-    if(!c) return '<span class="badge badge-sem">—</span>';
+function classBadge(c) {
+    const map   = {aemf:'badge-aemf', pf:'badge-pf', receita:'badge-receita'};
+    const label = {aemf:'AEMF', pf:'Pessoa Física', receita:'Receita'};
+    if (!c) return '<span class="badge badge-sem">—</span>';
     return `<span class="badge ${map[c]||'badge-sem'}">${label[c]||c}</span>`;
 }
 
-function esc(s){ return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function esc(s) {
+    return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+}
 
-function renderPagination(page, pages, total){
+function renderPagination(page, pages, total) {
     const info = document.getElementById('pagInfo');
     const btns = document.getElementById('pagBtns');
     pages = Math.max(1, pages);
@@ -454,74 +571,133 @@ function renderPagination(page, pages, total){
         b.className = 'pag-btn' + (active ? ' active' : '');
         b.innerHTML = label;
         b.disabled  = disabled;
-        if(!disabled && !active) b.addEventListener('click', () => { txPage = p; loadTransactions(); });
+        if (!disabled && !active) b.addEventListener('click', () => { txPage = p; loadTransactions(); });
         return b;
     };
 
     btns.innerHTML = '';
-    btns.appendChild(make('<i class="fa-solid fa-angles-left"></i>',  1,       page <= 1, false));
-    btns.appendChild(make('<i class="fa-solid fa-angle-left"></i>',   page-1,  page <= 1, false));
+    btns.appendChild(make('<i class="fa-solid fa-angles-left"></i>',  1,      page <= 1, false));
+    btns.appendChild(make('<i class="fa-solid fa-angle-left"></i>',   page-1, page <= 1, false));
 
-    // window of pages
     let start = Math.max(1, page-2), end = Math.min(pages, page+2);
-    if(start > 1) btns.appendChild(make('…', start-1, false, false));
-    for(let p = start; p <= end; p++) btns.appendChild(make(p, p, false, p === page));
-    if(end < pages) btns.appendChild(make('…', end+1, false, false));
+    if (start > 1) btns.appendChild(make('…', start-1, false, false));
+    for (let p = start; p <= end; p++) btns.appendChild(make(p, p, false, p === page));
+    if (end < pages) btns.appendChild(make('…', end+1, false, false));
 
     btns.appendChild(make('<i class="fa-solid fa-angle-right"></i>',  page+1, page >= pages, false));
     btns.appendChild(make('<i class="fa-solid fa-angles-right"></i>', pages,  page >= pages, false));
 }
 
-// ── Categories ────────────────────────────────────────────────────────────
-async function loadCategories(){
-    const list = document.getElementById('catList');
-    list.innerHTML = '<li style="text-align:center;padding:20px;color:var(--muted)"><div class="spinner"></div></li>';
-    document.getElementById('catMonth').textContent = monthLabel(getMonth());
+// ── Pie chart for categories ──────────────────────────────────────────────
+async function loadCategories() {
+    const legend = document.getElementById('pieLegend');
+    legend.innerHTML = '';
+    document.getElementById('catPeriodo').textContent =
+        periodMode === 'mensal' ? monthLabel(getMonth()) : 'Ano ' + getYear();
+
     try {
-        const j = await fetchJSON(`${API_DASH}?action=byCategory&month=${getMonth()}`);
+        let url;
+        if (periodMode === 'mensal') {
+            url = `${API_DASH}?action=byCategory&month=${getMonth()}`;
+        } else {
+            url = `${API_DASH}?action=byCategory&year=${getYear()}`;
+        }
+        const j = await fetchJSON(url);
         const rows = j.data || [];
-        if(rows.length === 0){
-            list.innerHTML = '<li style="text-align:center;padding:20px;color:#adb5bd"><i class="fa-solid fa-inbox"></i> Sem dados</li>';
+
+        if (rows.length === 0) {
+            if (pieInstance) { pieInstance.destroy(); pieInstance = null; }
+            legend.innerHTML = '<span style="color:#adb5bd"><i class="fa-solid fa-inbox"></i> Sem dados</span>';
             return;
         }
-        list.innerHTML = rows.map(r => `
-            <li class="cat-item">
-                <span class="cat-dot" style="background:${esc(r.cor||'#ccc')}"></span>
-                <span class="cat-name" title="${esc(r.nome)}">${esc(r.nome)}</span>
-                <span class="cat-val">${fmt(r.total)}</span>
-            </li>`).join('');
-    } catch(e){
-        list.innerHTML = `<li style="text-align:center;color:#dc3545;padding:16px">Erro: ${e.message}</li>`;
+
+        const labels = rows.map(r => r.nome);
+        const values = rows.map(r => parseFloat(r.total));
+        const colors = rows.map(r => r.cor || '#ccc');
+
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        if (pieInstance) pieInstance.destroy();
+        pieInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data:            values,
+                    backgroundColor: colors.map(c => c + 'cc'),
+                    borderColor:     colors,
+                    borderWidth:     1.5,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.raw)
+                        }
+                    }
+                }
+            }
+        });
+
+        // Custom legend
+        legend.innerHTML = rows.map(r =>
+            `<span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap">
+                <span style="width:10px;height:10px;border-radius:50%;background:${esc(r.cor||'#ccc')};display:inline-block"></span>
+                <span style="font-size:11px;color:#555">${esc(r.nome)}</span>
+            </span>`
+        ).join('');
+    } catch (e) {
+        legend.innerHTML = `<span style="color:#dc3545;font-size:12px">Erro: ${e.message}</span>`;
     }
 }
 
-// ── Chart ─────────────────────────────────────────────────────────────────
-async function loadChart(){
-    document.getElementById('chartYear').textContent = getYear();
+// ── Bar+line chart ────────────────────────────────────────────────────────
+async function loadChart() {
+    const year = getYear();
+    document.getElementById('chartLabel').textContent = year;
     try {
-        const j = await fetchJSON(`${API_DASH}?action=chart&year=${getYear()}`);
+        const j = await fetchJSON(`${API_DASH}?action=chart&year=${year}`);
         renderChart(j.labels, j.datasets);
-    } catch(e){
+    } catch (e) {
         showError('Erro ao carregar gráfico: ' + e.message);
     }
 }
 
-function renderChart(labels, datasets){
+function renderChart(labels, datasets) {
     const ctx = document.getElementById('mainChart').getContext('2d');
-    if(chartInstance) chartInstance.destroy();
+    if (chartInstance) chartInstance.destroy();
+
+    const chartDatasets = datasets.map(ds => {
+        if (ds.type === 'line') {
+            return {
+                type: 'line',
+                label: ds.label,
+                data: ds.data,
+                borderColor: ds.color,
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 3,
+                tension: 0.3,
+                yAxisID: 'y',
+                spanGaps: true,
+            };
+        }
+        return {
+            label:           ds.label,
+            data:            ds.data,
+            backgroundColor: ds.color + 'cc',
+            borderColor:     ds.color,
+            borderWidth:     1.5,
+            borderRadius:    4,
+        };
+    });
+
     chartInstance = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels,
-            datasets: datasets.map(ds => ({
-                label:           ds.label,
-                data:            ds.data,
-                backgroundColor: ds.color + 'cc',
-                borderColor:     ds.color,
-                borderWidth:     1.5,
-                borderRadius:    4,
-            }))
-        },
+        data: { labels, datasets: chartDatasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -537,9 +713,7 @@ function renderChart(labels, datasets){
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR')
-                    }
+                    ticks: { callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') }
                 }
             }
         }
@@ -547,7 +721,7 @@ function renderChart(labels, datasets){
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
-loadAll();
+init();
 </script>
 </body>
 </html>

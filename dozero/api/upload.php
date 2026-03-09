@@ -7,21 +7,31 @@ ini_set('log_errors', 1);
 
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/database.php';
+require_once dirname(__DIR__) . '/includes/utils.php';
 
 const TOLERANCE = 0.02;
+
+// Padrões de movimentação na conta de aplicação que devem ser ignorados
+const PADROES_EXCLUIDOS = [
+    'RES APLIC AUT MAIS',
+    'APL APLIC AUT MAIS',
+];
 
 $result = ['success' => false, 'extrato' => null, 'comprovantes' => null, 'stats' => null, 'error' => null];
 
 try {
     $db = getDB();
 
+    // 0. Excluir lançamentos de aplicação que possam já ter sido importados
+    excluirLancamentosAplicacao($db);
+
     // 1. OFX ─────────────────────────────────────────────────────────────────
     if (!empty($_FILES['extrato']['tmp_name'])) {
         $result['extrato'] = importarOFX($_FILES['extrato']['tmp_name'], $db);
-        // Recalculate monthly totals for affected months
         foreach ($result['extrato']['meses_afetados'] ?? [] as $mes) {
             recalcularSaldo($db, $mes);
         }
+        recalcularCascata($db);
     }
 
     // 2. PDFs ────────────────────────────────────────────────────────────────
@@ -53,17 +63,40 @@ echo json_encode($result, JSON_UNESCAPED_UNICODE);
 
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Retorna true se o memo corresponde a um padrão de movimentação de aplicação.
+ */
+function ehLancamentoAplicacao(string $memo): bool {
+    $upper = strtoupper($memo);
+    foreach (PADROES_EXCLUIDOS as $padrao) {
+        if (strpos($upper, $padrao) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Remove da base quaisquer transações de aplicação que já foram importadas.
+ */
+function excluirLancamentosAplicacao(PDO $db): void {
+    foreach (PADROES_EXCLUIDOS as $padrao) {
+        $db->prepare("DELETE FROM transacoes WHERE descricao LIKE :pat")
+           ->execute([':pat' => '%' . $padrao . '%']);
+    }
+}
+
 function importarOFX(string $tmp, PDO $db): array {
     $conteudo = file_get_contents($tmp);
     if ($conteudo === false) {
-        return ['imported' => 0, 'duplicates' => 0, 'total' => 0, 'meses_afetados' => [], 'error' => 'Leitura falhou'];
+        return ['imported' => 0, 'duplicates' => 0, 'skipped' => 0, 'total' => 0, 'meses_afetados' => [], 'error' => 'Leitura falhou'];
     }
 
     $conteudo = str_replace(["\r\n", "\r"], "\n", $conteudo);
     preg_match_all('/<STMTTRN>(.*?)<\/STMTTRN>/s', $conteudo, $m);
 
-    $transacoes   = [];
-    $mesAfetados  = [];
+    $transacoes  = [];
+    $mesAfetados = [];
 
     foreach ($m[1] as $bloco) {
         $g = static fn(string $tag): string =>
@@ -73,12 +106,16 @@ function importarOFX(string $tmp, PDO $db): array {
         $data  = $g('DTPOSTED');
         if (!$fitid || !$data) continue;
 
+        $memo = mb_substr($g('MEMO'), 0, 500);
+
+        // Req 7 — ignorar movimentações de conta de aplicação
+        if (ehLancamentoAplicacao($memo)) continue;
+
         $dataStr = substr($data, 0, 8);
         $dataFmt = substr($dataStr, 0, 4) . '-' . substr($dataStr, 4, 2) . '-' . substr($dataStr, 6, 2);
         $mesRef  = substr($dataStr, 0, 4) . '-' . substr($dataStr, 4, 2);
         $valor   = abs((float) str_replace(',', '.', $g('TRNAMT')));
         $tipo    = strtolower($g('TRNTYPE')) === 'credit' ? 'credito' : 'debito';
-        $memo    = mb_substr($g('MEMO'), 0, 500);
         $hash    = md5($fitid . $dataStr . $g('TRNAMT'));
 
         $mesAfetados[$mesRef] = true;
@@ -139,18 +176,25 @@ function importarComprovantes(array $files, PDO $db): array {
         $ok   = move_uploaded_file($files['tmp_name'][$i], $dest);
         $hash = $ok ? md5_file($dest) : md5($nomeOriginal . time());
 
-        // Store in comprovantes table
-        $compId = salvarComprovante($db, $nomeOriginal, $nomeSalvo, $hash, $dest);
+        // Build a clean description from the filename for display in dashboard
+        $descComp = descricaoFromFilename($nomeOriginal);
 
         $texto = '';
         if ($ok && $hasPdf) {
             try {
                 require_once $autoload;
                 $texto = (new \Smalot\PdfParser\Parser())->parseFile($dest)->getText();
+                // Try to extract a richer description from the PDF text
+                $extracted = extrairDescricaoPDF($texto);
+                if ($extracted !== '') {
+                    $descComp = $extracted;
+                }
             } catch (Throwable $e) {
                 error_log('PDF parse error: ' . $e->getMessage());
             }
         }
+
+        $compId = salvarComprovante($db, $nomeOriginal, $descComp, $nomeSalvo, $hash, $dest);
 
         $conciliado = ($ok && $compId) ? conciliar($texto, $compId, $db) : false;
         if ($conciliado) $matched++;
@@ -161,17 +205,50 @@ function importarComprovantes(array $files, PDO $db): array {
     return ['processed' => $processed, 'matched' => $matched, 'detalhes' => $detalhes];
 }
 
-function salvarComprovante(PDO $db, string $nomeOriginal, string $nomeSalvo, string $hash, string $caminho): ?int {
+/**
+ * Constrói uma descrição amigável a partir do nome do arquivo.
+ * Ex: "Comprovante_Pagamento_ELETROPAULO_jan2024.pdf" → "Comprovante Pagamento ELETROPAULO jan2024"
+ */
+function descricaoFromFilename(string $nome): string {
+    $base = pathinfo($nome, PATHINFO_FILENAME);
+    $base = preg_replace('/[_\-]+/', ' ', $base);
+    $base = preg_replace('/\s+/', ' ', $base);
+    return trim(mb_substr($base, 0, 200));
+}
+
+/**
+ * Tenta extrair uma descrição do texto do PDF (beneficiário, empresa, etc.).
+ */
+function extrairDescricaoPDF(string $texto): string {
+    if (trim($texto) === '') return '';
+
+    // Try to find a payee / company name on common patterns
+    $patterns = [
+        '/(?:Favorecido|Benefici[aá]rio|Empresa|Destino)\s*[:\-]?\s*([A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][^\n]{3,80})/iu',
+        '/(?:Pagamento\s+a|Pago\s+a|Para)\s*[:\-]?\s*([A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][^\n]{3,80})/iu',
+    ];
+
+    foreach ($patterns as $p) {
+        if (preg_match($p, $texto, $x)) {
+            $desc = trim(preg_replace('/\s+/', ' ', $x[1]));
+            if (strlen($desc) >= 4) {
+                return mb_substr($desc, 0, 200);
+            }
+        }
+    }
+    return '';
+}
+
+function salvarComprovante(PDO $db, string $nomeOriginal, string $descricao, string $nomeSalvo, string $hash, string $caminho): ?int {
     try {
         $stmt = $db->prepare("
-            INSERT IGNORE INTO comprovantes (nome_arquivo, hash_arquivo, caminho_arquivo)
-            VALUES (:nome, :hash, :caminho)
+            INSERT IGNORE INTO comprovantes (nome_arquivo, descricao, hash_arquivo, caminho_arquivo)
+            VALUES (:nome, :desc, :hash, :caminho)
         ");
-        $stmt->execute([':nome' => $nomeOriginal, ':hash' => $hash, ':caminho' => $caminho]);
+        $stmt->execute([':nome' => $nomeOriginal, ':desc' => $descricao ?: null, ':hash' => $hash, ':caminho' => $caminho]);
         if ($stmt->rowCount() > 0) {
             return (int) $db->lastInsertId();
         }
-        // Already exists — get the id
         $sel = $db->prepare("SELECT id FROM comprovantes WHERE hash_arquivo=:hash LIMIT 1");
         $sel->execute([':hash' => $hash]);
         $id = $sel->fetchColumn();
@@ -194,7 +271,6 @@ function conciliar(string $texto, int $compId, PDO $db): bool {
 
     if (!$valor || $valor <= 0) return false;
 
-    // Try to find the matching transaction
     $stmt = $db->prepare("
         SELECT t.id FROM transacoes t
         WHERE ABS(t.valor - :v) < :tol
@@ -213,7 +289,6 @@ function conciliar(string $texto, int $compId, PDO $db): bool {
             VALUES (:tx, :comp, 'automatica', 0.80)
         ")->execute([':tx' => $row['id'], ':comp' => $compId]);
 
-        // Mark comprovante as processed
         $db->prepare("UPDATE comprovantes SET processado=1 WHERE id=:id")->execute([':id' => $compId]);
         return true;
     } catch (Throwable $e) {
@@ -248,6 +323,9 @@ function aplicarRegras(PDO $db): void {
     }
 }
 
+/**
+ * Recalcula um único mês (totais de crédito/débito) sem encadear meses anteriores.
+ */
 function recalcularSaldo(PDO $db, string $mes): void {
     $stmt = $db->prepare("
         SELECT
@@ -261,11 +339,14 @@ function recalcularSaldo(PDO $db, string $mes): void {
     $c = (float)$row['creditos'];
     $d = (float)$row['debitos'];
 
+    // Preserve saldo_inicial set by cascata; only update totals here
     $db->prepare("
         INSERT INTO saldos_mensais (mes_referencia, total_creditos, total_debitos, saldo_final)
         VALUES (:mes, :c, :d, :s)
         ON DUPLICATE KEY UPDATE
-            total_creditos = :c2, total_debitos = :d2, saldo_final = :s2, updated_at = NOW()
+            total_creditos = :c2,
+            total_debitos  = :d2,
+            updated_at     = NOW()
     ")->execute([':mes' => $mes, ':c' => $c, ':d' => $d, ':s' => $c - $d,
-                 ':c2' => $c, ':d2' => $d, ':s2' => $c - $d]);
+                 ':c2' => $c, ':d2' => $d]);
 }
