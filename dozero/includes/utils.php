@@ -6,6 +6,10 @@
  *   Saldo Final(m) = Saldo_Inicial(m) + Créditos(m) - Débitos(m)
  *   Saldo_Inicial(m+1) = Saldo_Final(m)
  *
+ * O saldo_inicial do PRIMEIRO mês é lido do banco de dados (foi armazenado
+ * durante a importação do OFX a partir do LEDGERBAL). Os meses seguintes
+ * têm o saldo_inicial encadeado do saldo_final do mês anterior.
+ *
  * Deve ser chamado sempre que transações forem importadas ou excluídas.
  */
 function recalcularCascata(PDO $db): void {
@@ -15,7 +19,13 @@ function recalcularCascata(PDO $db): void {
         ORDER BY mes_referencia ASC
     ")->fetchAll(PDO::FETCH_COLUMN);
 
-    $saldoFinalAnterior = 0.0;
+    if (empty($meses)) return;
+
+    // Seed: use the saldo_inicial already stored for the first month (from OFX LEDGERBAL).
+    // If none exists yet, fall back to 0.
+    $siStmt = $db->prepare("SELECT saldo_inicial FROM saldos_mensais WHERE mes_referencia = :mes LIMIT 1");
+    $siStmt->execute([':mes' => $meses[0]]);
+    $saldoFinalAnterior = (float)($siStmt->fetchColumn() ?: 0.0);
 
     $updStmt = $db->prepare("
         INSERT INTO saldos_mensais (mes_referencia, saldo_inicial, total_creditos, total_debitos, saldo_final)

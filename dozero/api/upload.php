@@ -32,6 +32,8 @@ try {
             recalcularSaldo($db, $mes);
         }
         recalcularCascata($db);
+        // Conciliação: verify calculated balance matches OFX closing balance
+        $result['extrato']['conciliacao'] = verificarConciliacao($db, $result['extrato']);
     }
 
     // 2. PDFs ────────────────────────────────────────────────────────────────
@@ -89,7 +91,8 @@ function excluirLancamentosAplicacao(PDO $db): void {
 function importarOFX(string $tmp, PDO $db): array {
     $conteudo = file_get_contents($tmp);
     if ($conteudo === false) {
-        return ['imported' => 0, 'duplicates' => 0, 'skipped' => 0, 'total' => 0, 'meses_afetados' => [], 'error' => 'Leitura falhou'];
+        return ['imported' => 0, 'duplicates' => 0, 'total' => 0, 'meses_afetados' => [],
+                'saldo_inicial_ofx' => null, 'saldo_final_ofx' => null, 'error' => 'Leitura falhou'];
     }
 
     $conteudo = str_replace(["\r\n", "\r"], "\n", $conteudo);
@@ -142,11 +145,114 @@ function importarOFX(string $tmp, PDO $db): array {
         $stmt->rowCount() > 0 ? $imported++ : $duplicates++;
     }
 
+    // ── Extract OFX closing balance (LEDGERBAL) ────────────────────────────
+    // LEDGERBAL in OFX = account balance at the end of the statement period.
+    // We derive the opening balance as: closing - (sum_credits - sum_debits).
+    $saldosOFX      = extrairSaldosOFX($conteudo);
+    $saldoFinalOFX  = !empty($saldosOFX) ? end($saldosOFX)    : null;
+    $saldoInicialOFX = null;
+
+    if (!empty($saldosOFX)) {
+        if (count($saldosOFX) >= 2) {
+            // Multiple LEDGERBAL: first = opening, last = closing
+            reset($saldosOFX);
+            $saldoInicialOFX = current($saldosOFX);
+        } else {
+            // Single LEDGERBAL = closing; derive opening from net transactions
+            $net = 0.0;
+            foreach ($transacoes as $t) {
+                $net += $t['tipo'] === 'credito' ? $t['valor'] : -$t['valor'];
+            }
+            $saldoInicialOFX = $saldoFinalOFX - $net;
+        }
+    }
+
+    // Store the OFX-derived opening balance for the earliest affected month
+    // so that recalcularCascata can use it as the starting point.
+    // saldo_final will be recomputed by recalcularCascata; set to 0 here.
+    if ($saldoInicialOFX !== null && !empty($mesAfetados)) {
+        $primeiroMes = min(array_keys($mesAfetados));
+        $db->prepare("
+            INSERT INTO saldos_mensais (mes_referencia, saldo_inicial, total_creditos, total_debitos, saldo_final)
+            VALUES (:mes, :si, 0, 0, 0)
+            ON DUPLICATE KEY UPDATE saldo_inicial = :si2, updated_at = NOW()
+        ")->execute([':mes' => $primeiroMes, ':si' => $saldoInicialOFX, ':si2' => $saldoInicialOFX]);
+    }
+
     return [
-        'imported'       => $imported,
-        'duplicates'     => $duplicates,
-        'total'          => count($transacoes),
-        'meses_afetados' => array_keys($mesAfetados),
+        'imported'         => $imported,
+        'duplicates'       => $duplicates,
+        'total'            => count($transacoes),
+        'meses_afetados'   => array_keys($mesAfetados),
+        'saldo_inicial_ofx' => $saldoInicialOFX,
+        'saldo_final_ofx'   => $saldoFinalOFX,
+    ];
+}
+
+/**
+ * Extrai todos os blocos <LEDGERBAL> do OFX, retornando [date => amount] ordenado por data.
+ */
+function extrairSaldosOFX(string $conteudo): array {
+    $saldos = [];
+
+    // Try tag-pair format first: <LEDGERBAL>...</LEDGERBAL>
+    if (preg_match_all('/<LEDGERBAL>(.*?)<\/LEDGERBAL>/si', $conteudo, $blocks)) {
+        foreach ($blocks[1] as $bloco) {
+            $g = static fn(string $tag): string =>
+                trim(preg_match("/<{$tag}>\s*([^\n<]+)/i", $bloco, $x) ? $x[1] : '');
+            $balamt = $g('BALAMT');
+            $dtasof = $g('DTASOF');
+            if ($balamt === '') continue;
+            $date = $dtasof !== '' ? substr($dtasof, 0, 8) : '';
+            $key  = $date !== '' ? substr($date,0,4).'-'.substr($date,4,2).'-'.substr($date,6,2) : 'unknown';
+            $saldos[$key] = (float) str_replace(',', '.', $balamt);
+        }
+    }
+
+    // Fallback: SGML open-tag format (no closing tag)
+    if (empty($saldos)) {
+        // Find BALAMT right after LEDGERBAL section
+        if (preg_match('/<LEDGERBAL>.*?<BALAMT>\s*([^\n<\[]+)/si', $conteudo, $x)) {
+            $saldos['end'] = (float) str_replace(',', '.', trim($x[1]));
+        }
+    }
+
+    ksort($saldos);
+    return $saldos;
+}
+
+/**
+ * Verifica se o saldo final calculado bate com o saldo final do extrato OFX.
+ * Retorna array com status da conciliação.
+ */
+function verificarConciliacao(PDO $db, array $extratoResult): array {
+    $saldoFinalOFX = $extratoResult['saldo_final_ofx'] ?? null;
+    if ($saldoFinalOFX === null || empty($extratoResult['meses_afetados'])) {
+        return ['ok' => null, 'mensagem' => 'Saldo do extrato OFX não disponível para verificação'];
+    }
+
+    $ultimoMes = max($extratoResult['meses_afetados']);
+    $stmt = $db->prepare("SELECT saldo_final FROM saldos_mensais WHERE mes_referencia = :mes LIMIT 1");
+    $stmt->execute([':mes' => $ultimoMes]);
+    $row = $stmt->fetch();
+
+    if (!$row) {
+        return ['ok' => null, 'mensagem' => 'Saldo calculado não encontrado para o período'];
+    }
+
+    $saldoCalculado = (float) $row['saldo_final'];
+    $diferenca = abs($saldoCalculado - $saldoFinalOFX);
+    $ok = $diferenca <= TOLERANCE;
+
+    return [
+        'ok'                => $ok,
+        'saldo_final_ofx'   => $saldoFinalOFX,
+        'saldo_calculado'   => $saldoCalculado,
+        'diferenca'         => round($diferenca, 2),
+        'mensagem'          => $ok
+            ? 'Conciliação OK: saldo calculado confere com o extrato'
+            : sprintf('Divergência de R$ %.2f entre saldo calculado (%.2f) e extrato (%.2f)',
+                       $diferenca, $saldoCalculado, $saldoFinalOFX),
     ];
 }
 
@@ -308,10 +414,11 @@ function aplicarRegras(PDO $db): void {
         UPDATE transacoes SET categoria_id=:cat
         WHERE categoria_id IS NULL AND descricao LIKE :pat
     ");
+    // Note: :cnt must not appear twice in the same statement when emulate_prepares=false
     $updRef = $db->prepare("
         UPDATE referencias_categoria
         SET usos = usos + :cnt, ultima_aplicacao = NOW()
-        WHERE padrao = :padrao AND :cnt > 0
+        WHERE padrao = :padrao
     ");
 
     foreach ($refs as $r) {

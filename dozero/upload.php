@@ -199,9 +199,41 @@ function showResult(j){
     const e = j.extrato  || {};
     const c = j.comprovantes || {};
     const s = j.stats    || {};
+    const conc = e.conciliacao || {};
+
+    const fmt = v => v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+
+    // Balance conciliation banner
+    let concBanner = '';
+    if (conc.ok === true) {
+        concBanner = `<div class="alert alert-success" style="display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-check-circle fa-lg"></i>
+            <div>
+                <strong>Conciliação OK:</strong> saldo calculado confere com o extrato.<br>
+                <span style="font-size:13px">Saldo Final Calculado: <strong>${fmt(conc.saldo_calculado)}</strong> | Saldo Final OFX: <strong>${fmt(conc.saldo_final_ofx)}</strong></span>
+            </div>
+        </div>`;
+    } else if (conc.ok === false) {
+        concBanner = `<div class="alert alert-danger" style="display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-triangle-exclamation fa-lg"></i>
+            <div>
+                <strong>Divergência na conciliação:</strong> ${conc.mensagem||''}<br>
+                <span style="font-size:13px">Saldo Final Calculado: <strong>${fmt(conc.saldo_calculado)}</strong> | Saldo Final OFX: <strong>${fmt(conc.saldo_final_ofx)}</strong> | Diferença: <strong>${fmt(conc.diferenca)}</strong></span>
+            </div>
+        </div>`;
+    } else if (e.saldo_inicial_ofx != null) {
+        concBanner = `<div class="alert" style="background:#e8f4f8;color:#1a3c5e;border:1px solid #b8dce8;display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-info-circle fa-lg"></i>
+            <div>
+                <strong>Saldos do Extrato OFX:</strong>
+                Saldo Inicial: <strong>${fmt(e.saldo_inicial_ofx)}</strong> | Saldo Final: <strong>${fmt(e.saldo_final_ofx)}</strong>
+            </div>
+        </div>`;
+    }
 
     rc.innerHTML = `
         <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> Importação concluída com sucesso!</div>
+        ${concBanner}
         <div class="stat-grid">
             <div class="stat-box"><div class="n">${e.imported||0}</div><div class="l">Transações importadas</div></div>
             <div class="stat-box"><div class="n">${e.duplicates||0}</div><div class="l">Duplicatas ignoradas</div></div>
