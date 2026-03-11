@@ -7,6 +7,7 @@ ini_set('log_errors', 1);
 
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/database.php';
+require_once dirname(__DIR__) . '/includes/utils.php';
 
 $action = $_GET['action'] ?? 'summary';
 $month  = $_GET['month']  ?? date('Y-m');   // YYYY-MM
@@ -18,6 +19,13 @@ $tipo   = $_GET['tipo'] ?? '';
 
 try {
     $db = getDB();
+
+    // For balance-reading actions, refresh saldos_mensais from the authoritative
+    // saldo_inicial seed before any SELECT so the dashboard never shows stale data.
+    // List / count actions (transactions, months, byCategory…) skip this to stay fast.
+    if (in_array($action, ['summary', 'annualSummary', 'chart', 'saldosMensais'], true)) {
+        recalcularCascata($db);
+    }
 
     switch ($action) {
 
