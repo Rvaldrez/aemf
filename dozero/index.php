@@ -281,6 +281,15 @@ tbody tr:last-child td{border-bottom:none}
             <span id="txCount" style="font-size:13px;color:var(--muted)"></span>
         </div>
         <div class="panel-body">
+            <!-- Balance summary row above transactions -->
+            <div id="saldoRow" style="display:none;background:#f8f9fa;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:13px;align-items:center;flex-wrap:wrap;gap:16px">
+                <span><strong style="color:var(--muted)">Saldo Inicial:</strong>
+                    <strong id="saldoRowSI" style="color:var(--primary);margin-left:4px">R$ —</strong></span>
+                <span style="color:#ccc">|</span>
+                <span><strong style="color:var(--muted)">Saldo Final:</strong>
+                    <strong id="saldoRowSF" style="margin-left:4px">R$ —</strong></span>
+            </div>
+
             <div class="section-header">
                 <div class="search-bar">
                     <input type="text" id="searchInput" placeholder="Buscar por descrição…">
@@ -468,6 +477,17 @@ async function loadSummary() {
         const elCFf = document.getElementById('cf-final');
         elCFf.textContent  = fmt(sf);
         elCFf.style.color  = sf >= 0 ? '#28a745' : '#dc3545';
+
+        // Saldo row inside Movimentos Financeiros
+        const saldoRow = document.getElementById('saldoRow');
+        const siEl = document.getElementById('saldoRowSI');
+        const sfEl = document.getElementById('saldoRowSF');
+        if (saldoRow) {
+            saldoRow.style.display = 'flex';
+            siEl.textContent = fmt(si);
+            sfEl.textContent = fmt(sf);
+            sfEl.style.color = sf >= 0 ? '#28a745' : '#dc3545';
+        }
 
     } catch (e) {
         showError('Erro ao carregar resumo: ' + e.message);

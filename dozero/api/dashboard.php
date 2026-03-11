@@ -144,9 +144,13 @@ try {
 
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes,
-                       COALESCE(comp.descricao, t.descricao) AS descricao,
+                       COALESCE(
+                           NULLIF(comp.descricao, ''),
+                           CASE WHEN cc.id IS NOT NULL THEN comp.nome_arquivo ELSE NULL END,
+                           t.descricao
+                       ) AS descricao,
                        t.descricao AS descricao_extrato,
-                       comp.descricao AS descricao_comprovante,
+                       COALESCE(NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
                        c.nome AS categoria, c.cor AS categoria_cor,
                        (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
                 FROM transacoes t
@@ -204,9 +208,13 @@ try {
 
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.mes_referencia,
-                       COALESCE(comp.descricao, t.descricao) AS descricao,
+                       COALESCE(
+                           NULLIF(comp.descricao, ''),
+                           CASE WHEN cc.id IS NOT NULL THEN comp.nome_arquivo ELSE NULL END,
+                           t.descricao
+                       ) AS descricao,
                        t.descricao AS descricao_extrato,
-                       comp.descricao AS descricao_comprovante,
+                       COALESCE(NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
                        c.nome AS categoria, c.cor AS categoria_cor,
                        (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
                 FROM transacoes t

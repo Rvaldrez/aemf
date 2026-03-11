@@ -199,6 +199,28 @@ try {
         // ═══════════════════════════════════════════════════════════════════
         // SALDOS MENSAIS
         // ═══════════════════════════════════════════════════════════════════
+        case 'getSaldosMensais':
+            $rows = $db->query("SELECT * FROM saldos_mensais ORDER BY mes_referencia")->fetchAll();
+            echo json_encode(['success' => true, 'data' => $rows], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'setSaldoInicial':
+            $mes = trim($data['mes'] ?? '');
+            $si  = (float)($data['saldo_inicial'] ?? 0);
+            if (!preg_match('/^\d{4}-\d{2}$/', $mes) || (int)substr($mes, 5, 2) < 1 || (int)substr($mes, 5, 2) > 12) {
+                echo json_encode(['success' => false, 'error' => 'Mês inválido (esperado YYYY-MM, ex: 2024-01)'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $db->prepare("
+                INSERT INTO saldos_mensais (mes_referencia, saldo_inicial, total_creditos, total_debitos, saldo_final)
+                VALUES (:mes, :si, 0, 0, 0)
+                ON DUPLICATE KEY UPDATE saldo_inicial = :si2, updated_at = NOW()
+            ")->execute([':mes' => $mes, ':si' => $si, ':si2' => $si]);
+            recalcularCascata($db);
+            $rows = $db->query("SELECT * FROM saldos_mensais ORDER BY mes_referencia")->fetchAll();
+            echo json_encode(['success' => true, 'data' => $rows], JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'recalcularSaldo':
             $mes = $data['mes'] ?? date('Y-m');
             recalcularSaldo($db, $mes);

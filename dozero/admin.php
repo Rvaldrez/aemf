@@ -110,6 +110,7 @@ tbody tr:last-child td{border-bottom:none}
         <button class="tab-btn active" onclick="showTab('cat')"><i class="fa-solid fa-tags"></i> Categorias</button>
         <button class="tab-btn" onclick="showTab('ref')"><i class="fa-solid fa-link"></i> Referências</button>
         <button class="tab-btn" onclick="showTab('cls')"><i class="fa-solid fa-pen-to-square"></i> Classificar Transações</button>
+        <button class="tab-btn" onclick="showTab('saldos')"><i class="fa-solid fa-wallet"></i> Saldos Mensais</button>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════ CATEGORIAS -->
@@ -244,6 +245,60 @@ tbody tr:last-child td{border-bottom:none}
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════ SALDOS MENSAIS -->
+    <div id="tab-saldos" class="tab-pane">
+        <div class="alert alert-success" id="saldosAlert"></div>
+        <div class="alert alert-danger"  id="saldosErr"></div>
+
+        <!-- Override saldo inicial -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3><i class="fa-solid fa-pen-to-square"></i> Definir Saldo Inicial do Mês</h3>
+            </div>
+            <div class="panel-body">
+                <p style="font-size:13px;color:#666;margin-bottom:16px">
+                    Use este formulário para corrigir o saldo inicial de um mês quando o extrato OFX não contiver o saldo inicial (LEDGERBAL).
+                    O sistema recalculará em cascata todos os meses seguintes.
+                </p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Mês de referência (YYYY-MM) *</label>
+                        <input type="month" id="saldosMes" placeholder="Ex: 2024-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Saldo Inicial (R$) *</label>
+                        <input type="number" id="saldosSI" step="0.01" placeholder="Ex: 50000.00">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="setSaldoInicial()"><i class="fa-solid fa-floppy-disk"></i> Salvar e Recalcular</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3><i class="fa-solid fa-table"></i> Saldos por Mês</h3>
+                <button class="btn btn-outline btn-sm" onclick="loadSaldos()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+            </div>
+            <div style="overflow-x:auto">
+                <table>
+                    <thead><tr>
+                        <th>Mês</th>
+                        <th style="text-align:right">Saldo Inicial</th>
+                        <th style="text-align:right">Entradas</th>
+                        <th style="text-align:right">Saídas</th>
+                        <th style="text-align:right">Saldo Final</th>
+                    </tr></thead>
+                    <tbody id="saldosBody">
+                        <tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div><!-- /main -->
 
 <script>
@@ -257,6 +312,7 @@ function showTab(name){
     document.getElementById('tab-' + name).classList.add('active');
     event.currentTarget.classList.add('active');
     if(name === 'cls') loadUncategorized();
+    if(name === 'saldos') loadSaldos();
 }
 
 // ── Fetch helper ──────────────────────────────────────────────────────────
@@ -493,6 +549,46 @@ async function aplicarRegras(){
         loadUncategorized();
     } else {
         res.innerHTML = `<p style="color:#721c24">Erro: ${esc(j.error)}</p>`;
+    }
+}
+
+// ════════════════════════════════════════════════════════ SALDOS MENSAIS
+async function loadSaldos(){
+    const body = document.getElementById('saldosBody');
+    body.innerHTML = '<tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>';
+    const j = await api('action=getSaldosMensais');
+    const rows = j.data || [];
+    if(!rows.length){
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#adb5bd">Nenhum saldo cadastrado</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(r => {
+        const si = parseFloat(r.saldo_inicial);
+        const sf = parseFloat(r.saldo_final);
+        const sfColor = sf >= 0 ? 'color:#28a745' : 'color:#dc3545';
+        return `<tr>
+            <td><strong>${esc(r.mes_referencia)}</strong></td>
+            <td style="text-align:right">${fmt(r.saldo_inicial)}</td>
+            <td style="text-align:right;color:#28a745">${fmt(r.total_creditos)}</td>
+            <td style="text-align:right;color:#dc3545">${fmt(r.total_debitos)}</td>
+            <td style="text-align:right;font-weight:700;${sfColor}">${fmt(r.saldo_final)}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function setSaldoInicial(){
+    const mes = document.getElementById('saldosMes').value.trim();
+    const si  = document.getElementById('saldosSI').value.trim();
+    if(!mes || si === ''){
+        flash('saldosErr','Preencha o mês e o saldo inicial.','danger');
+        return;
+    }
+    const j = await api('action=setSaldoInicial', { mes, saldo_inicial: parseFloat(si) });
+    if(j.success){
+        flash('saldosAlert', `Saldo inicial de ${mes} atualizado. Cascata recalculada.`, 'success');
+        loadSaldos();
+    } else {
+        flash('saldosErr', j.error || 'Erro ao salvar.', 'danger');
     }
 }
 

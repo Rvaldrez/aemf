@@ -347,14 +347,24 @@ function extrairDescricaoPDF(string $texto): string {
 
 function salvarComprovante(PDO $db, string $nomeOriginal, string $descricao, string $nomeSalvo, string $hash, string $caminho): ?int {
     try {
+        // Use ON DUPLICATE KEY UPDATE so that if a prior upload had no description,
+        // the new (better) description is stored. COALESCE(descricao, :desc2) keeps
+        // the existing description when it is already set (intentional: first write wins
+        // so a good description is never overwritten by a worse one). A NULL existing
+        // description is replaced by the new value.
+        // LAST_INSERT_ID(id) makes lastInsertId() return the row's id on UPDATE too.
         $stmt = $db->prepare("
-            INSERT IGNORE INTO comprovantes (nome_arquivo, descricao, hash_arquivo, caminho_arquivo)
+            INSERT INTO comprovantes (nome_arquivo, descricao, hash_arquivo, caminho_arquivo)
             VALUES (:nome, :desc, :hash, :caminho)
+            ON DUPLICATE KEY UPDATE
+                descricao = COALESCE(descricao, :desc2),
+                id        = LAST_INSERT_ID(id)
         ");
-        $stmt->execute([':nome' => $nomeOriginal, ':desc' => $descricao ?: null, ':hash' => $hash, ':caminho' => $caminho]);
-        if ($stmt->rowCount() > 0) {
-            return (int) $db->lastInsertId();
-        }
+        $stmt->execute([':nome' => $nomeOriginal, ':desc' => $descricao ?: null,
+                        ':desc2' => $descricao ?: null, ':hash' => $hash, ':caminho' => $caminho]);
+        $id = (int) $db->lastInsertId();
+        if ($id > 0) return $id;
+        // Fallback: fetch by hash (covers edge cases where LAST_INSERT_ID returns 0)
         $sel = $db->prepare("SELECT id FROM comprovantes WHERE hash_arquivo=:hash LIMIT 1");
         $sel->execute([':hash' => $hash]);
         $id = $sel->fetchColumn();
