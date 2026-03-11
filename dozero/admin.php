@@ -259,6 +259,47 @@ tbody tr:last-child td{border-bottom:none}
         <div class="alert alert-success" id="saldosAlert"></div>
         <div class="alert alert-danger"  id="saldosErr"></div>
 
+        <!-- Global opening balance (saldo_inicial table) -->
+        <div class="panel" style="border-left:4px solid var(--accent)">
+            <div class="panel-header">
+                <h3><i class="fa-solid fa-coins"></i> Saldo de Abertura — Posição Inicial</h3>
+            </div>
+            <div class="panel-body">
+                <p style="font-size:13px;color:#666;margin-bottom:16px">
+                    Este é o saldo de partida do sistema. Todos os cálculos em cascata partem deste valor.
+                    Altere aqui quando precisar corrigir a posição inicial da contabilidade.
+                </p>
+                <div id="saldoAberturaDisplay" style="background:#f0f4f8;border-radius:10px;padding:16px;margin-bottom:16px;display:none">
+                    <span style="font-size:13px;color:#555">Data de referência: <strong id="siDataRef">—</strong></span>
+                    &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <span style="font-size:20px;font-weight:700;color:var(--accent)">R$ <span id="siValorDisplay">0,00</span></span>
+                    &nbsp;&nbsp;
+                    <button class="btn btn-outline btn-sm" onclick="editarSaldoAbertura()"><i class="fa-solid fa-pen"></i> Editar</button>
+                </div>
+                <div id="saldoAberturaForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Data de referência *</label>
+                            <input type="date" id="siDataRefInput" value="2026-01-01">
+                        </div>
+                        <div class="form-group">
+                            <label>Valor (R$) *</label>
+                            <input type="number" id="siValorInput" step="0.01" placeholder="Ex: 109612.63">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:16px">
+                        <label>Descrição (opcional)</label>
+                        <input type="text" id="siDescInput" placeholder="Ex: Posição inicial em 01/01/2026">
+                    </div>
+                    <input type="hidden" id="siId" value="0">
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="salvarSaldoAbertura()"><i class="fa-solid fa-floppy-disk"></i> Salvar e Recalcular Cascata</button>
+                        <button class="btn btn-outline" id="siCancelBtn" onclick="cancelarSaldoAbertura()" style="display:none"><i class="fa-solid fa-xmark"></i> Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Override saldo inicial -->
         <div class="panel">
             <div class="panel-header">
@@ -324,7 +365,7 @@ function showTab(name){
     document.getElementById('tab-' + name).classList.add('active');
     event.currentTarget.classList.add('active');
     if(name === 'cls') loadUncategorized();
-    if(name === 'saldos') loadSaldos();
+    if(name === 'saldos') { loadSaldoAbertura(); loadSaldos(); }
 }
 
 // ── Fetch helper ──────────────────────────────────────────────────────────
@@ -599,6 +640,65 @@ async function aplicarRegras(){
 }
 
 // ════════════════════════════════════════════════════════ SALDOS MENSAIS
+let _siCurrentId = 0;
+
+async function loadSaldoAbertura(){
+    const j = await api('action=getSaldoInicialGlobal');
+    const display = document.getElementById('saldoAberturaDisplay');
+    const form    = document.getElementById('saldoAberturaForm');
+    if(j.data){
+        const d = j.data;
+        _siCurrentId = parseInt(d.id) || 0;
+        document.getElementById('siDataRef').textContent = d.data_ref || '—';
+        document.getElementById('siValorDisplay').textContent = fmtNum(parseFloat(d.valor));
+        display.style.display = 'block';
+        form.style.display    = 'none';
+        document.getElementById('siId').value = d.id;
+        document.getElementById('siDataRefInput').value = d.data_ref || '2026-01-01';
+        document.getElementById('siValorInput').value   = d.valor    || '';
+        document.getElementById('siDescInput').value    = d.descricao || '';
+    } else {
+        display.style.display = 'none';
+        form.style.display    = 'block';
+    }
+}
+
+function editarSaldoAbertura(){
+    document.getElementById('saldoAberturaDisplay').style.display = 'none';
+    document.getElementById('saldoAberturaForm').style.display    = 'block';
+    document.getElementById('siCancelBtn').style.display          = 'inline-flex';
+}
+
+function cancelarSaldoAbertura(){
+    document.getElementById('saldoAberturaForm').style.display    = 'none';
+    document.getElementById('saldoAberturaDisplay').style.display = 'block';
+    document.getElementById('siCancelBtn').style.display          = 'none';
+}
+
+async function salvarSaldoAbertura(){
+    const valor    = document.getElementById('siValorInput').value.trim();
+    const dataRef  = document.getElementById('siDataRefInput').value.trim();
+    const descricao = document.getElementById('siDescInput').value.trim();
+    const id       = parseInt(document.getElementById('siId').value) || 0;
+    if(!valor || !dataRef){
+        flash('saldosErr','Preencha a data e o valor.','danger');
+        return;
+    }
+    const j = await api('action=setSaldoInicialGlobal', {
+        id, data_ref: dataRef, valor: parseFloat(valor), descricao
+    });
+    if(j.success){
+        flash('saldosAlert','Saldo de abertura atualizado. Cascata recalculada com sucesso.','success');
+        document.getElementById('siCancelBtn').style.display = 'none';
+        loadSaldoAbertura();
+        loadSaldos();
+    } else {
+        flash('saldosErr', j.error || 'Erro ao salvar.','danger');
+    }
+}
+
+function fmtNum(n){ return n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
 async function loadSaldos(){
     const body = document.getElementById('saldosBody');
     body.innerHTML = '<tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>';

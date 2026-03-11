@@ -257,6 +257,45 @@ try {
             break;
 
         // ═══════════════════════════════════════════════════════════════════
+        // SALDO INICIAL GLOBAL
+        // ═══════════════════════════════════════════════════════════════════
+        case 'getSaldoInicialGlobal':
+            try {
+                $row = $db->query("SELECT * FROM saldo_inicial ORDER BY data_ref ASC LIMIT 1")->fetch();
+            } catch (Throwable $e) {
+                $row = null;
+            }
+            echo json_encode(['success' => true, 'data' => $row ?: null], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'setSaldoInicialGlobal':
+            $valor    = (float)($data['valor']    ?? 0);
+            $dataRef  = trim($data['data_ref']    ?? '2026-01-01');
+            $descricao = trim($data['descricao']  ?? '');
+            $id       = (int)($data['id']         ?? 0);
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dataRef)) {
+                echo json_encode(['success' => false, 'error' => 'Data inválida (esperado YYYY-MM-DD)'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            if ($id > 0) {
+                $db->prepare("
+                    UPDATE saldo_inicial
+                    SET data_ref=:dr, valor=:v, descricao=:desc, updated_at=NOW()
+                    WHERE id=:id
+                ")->execute([':dr' => $dataRef, ':v' => $valor, ':desc' => $descricao ?: null, ':id' => $id]);
+            } else {
+                $db->prepare("
+                    INSERT INTO saldo_inicial (data_ref, valor, descricao)
+                    VALUES (:dr, :v, :desc)
+                ")->execute([':dr' => $dataRef, ':v' => $valor, ':desc' => $descricao ?: null]);
+            }
+            recalcularCascata($db);
+            $row  = $db->query("SELECT * FROM saldo_inicial ORDER BY data_ref ASC LIMIT 1")->fetch();
+            $rows = $db->query("SELECT * FROM saldos_mensais ORDER BY mes_referencia")->fetchAll();
+            echo json_encode(['success' => true, 'data' => $row, 'saldos_mensais' => $rows], JSON_UNESCAPED_UNICODE);
+            break;
+
+        // ═══════════════════════════════════════════════════════════════════
         // SALDOS MENSAIS
         // ═══════════════════════════════════════════════════════════════════
         case 'getSaldosMensais':

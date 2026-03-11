@@ -242,6 +242,43 @@ function setupSchema(PDO $db): void {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
+        // ── saldo_inicial ─────────────────────────────────────────────────
+        // Stores the global opening balance from which the entire cascade starts.
+        // One row per "epoch"; the row with the earliest data_ref is the seed.
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS saldo_inicial (
+                id         INT           AUTO_INCREMENT PRIMARY KEY,
+                data_ref   DATE          NOT NULL DEFAULT '2026-01-01',
+                valor      DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                descricao  VARCHAR(255)  DEFAULT NULL,
+                created_at TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        // Add required columns to saldo_inicial if the table already existed with different structure
+        $colValor  = $db->query("SHOW COLUMNS FROM saldo_inicial LIKE 'valor'")->fetchAll();
+        if (empty($colValor)) {
+            $db->exec("ALTER TABLE saldo_inicial ADD COLUMN valor DECIMAL(15,2) NOT NULL DEFAULT 0.00");
+        }
+        $colDataRef = $db->query("SHOW COLUMNS FROM saldo_inicial LIKE 'data_ref'")->fetchAll();
+        if (empty($colDataRef)) {
+            $db->exec("ALTER TABLE saldo_inicial ADD COLUMN data_ref DATE NOT NULL DEFAULT '2026-01-01'");
+        }
+        $colDesc = $db->query("SHOW COLUMNS FROM saldo_inicial LIKE 'descricao'")->fetchAll();
+        if (empty($colDesc)) {
+            $db->exec("ALTER TABLE saldo_inicial ADD COLUMN descricao VARCHAR(255) DEFAULT NULL");
+        }
+
+        // Seed with the known opening balance if no row has valor set yet
+        $cntSI = (int) $db->query("SELECT COUNT(*) FROM saldo_inicial WHERE valor > 0")->fetchColumn();
+        if ($cntSI === 0) {
+            $db->exec("
+                INSERT INTO saldo_inicial (data_ref, valor, descricao)
+                VALUES ('2026-01-01', 109612.63, 'Posição inicial em 01/01/2026')
+            ");
+        }
+
     } catch (PDOException $e) {
         error_log('setupSchema error: ' . $e->getMessage());
     }
