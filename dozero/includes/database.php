@@ -147,6 +147,12 @@ function setupSchema(PDO $db): void {
             $db->exec("ALTER TABLE comprovantes ADD COLUMN descricao VARCHAR(500) DEFAULT NULL AFTER nome_arquivo");
         }
 
+        // Add beneficiario column — stores the payee/recipient extracted from the PDF
+        $colsBen = $db->query("SHOW COLUMNS FROM comprovantes LIKE 'beneficiario'")->fetchAll();
+        if (empty($colsBen)) {
+            $db->exec("ALTER TABLE comprovantes ADD COLUMN beneficiario VARCHAR(300) DEFAULT NULL AFTER descricao");
+        }
+
         // ── conciliacoes ─────────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS conciliacoes (

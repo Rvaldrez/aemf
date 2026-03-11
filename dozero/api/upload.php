@@ -300,7 +300,8 @@ function importarComprovantes(array $files, PDO $db): array {
             }
         }
 
-        $compId = salvarComprovante($db, $nomeOriginal, $descComp, $nomeSalvo, $hash, $dest);
+        $beneficiario = extrairBeneficiario($texto);
+        $compId = salvarComprovante($db, $nomeOriginal, $descComp, $nomeSalvo, $hash, $dest, $beneficiario);
 
         $conciliado = ($ok && $compId) ? conciliar($texto, $compId, $db) : false;
         if ($conciliado) $matched++;
@@ -345,23 +346,78 @@ function extrairDescricaoPDF(string $texto): string {
     return '';
 }
 
-function salvarComprovante(PDO $db, string $nomeOriginal, string $descricao, string $nomeSalvo, string $hash, string $caminho): ?int {
+/**
+ * Extrai o nome do beneficiário / recebedor do texto de um comprovante PDF.
+ *
+ * Cobre os formatos mais comuns de recibos bancários brasileiros:
+ *   PIX, TED, DOC, boleto (Itaú, Bradesco, BB, Caixa, Santander, Nubank, …).
+ *
+ * Prioridade (do mais específico para o mais genérico):
+ *   1. "Nome do recebedor"  / "Nome do favorecido"
+ *   2. "Beneficiário"       / "Favorecido"          / "Recebedor"
+ *   3. "Cedente"            (boleto)
+ *   4. "Empresa"            / "Destino"
+ *   5. "Pagamento a"        / "Pago a"              / "Para"
+ */
+function extrairBeneficiario(string $texto): string {
+    if (trim($texto) === '') return '';
+
+    // Each pattern: group 1 = payee name
+    $patterns = [
+        // Most specific — "Nome do recebedor" / "Nome do favorecido" (PIX receipts)
+        '/Nome\s+do\s+recebedor\s*[:\-]?\s*([^\n\r]{3,100})/iu',
+        '/Nome\s+do\s+favorecido\s*[:\-]?\s*([^\n\r]{3,100})/iu',
+        // Generic payee labels
+        '/(?:Benefici[aá]rio|Favorecido|Recebedor)\s*[:\-]?\s*([A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][^\n\r]{2,100})/iu',
+        // Boleto cedente
+        '/Cedente\s*[:\-]?\s*([A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][^\n\r]{2,100})/iu',
+        // Other labels
+        '/(?:Empresa|Destino)\s*[:\-]?\s*([A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][^\n\r]{2,100})/iu',
+        '/(?:Pagamento\s+a|Pago\s+a|Para)\s*[:\-]?\s*([A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][^\n\r]{2,100})/iu',
+    ];
+
+    foreach ($patterns as $p) {
+        if (preg_match($p, $texto, $x)) {
+            // Trim trailing metadata: CPF/CNPJ fragments, extra spaces
+            $raw  = trim(preg_replace('/\s+/', ' ', $x[1]));
+            // Remove trailing CPF/CNPJ patterns (e.g. "123.456.789-00" or "12.345.678/0001-00")
+            $raw  = preg_replace('/\s+[\d]{2,3}[\.\d\-\/]+[\d]{2}$/', '', $raw);
+            $raw  = rtrim(trim($raw), '.,;:');
+            if (mb_strlen($raw) >= 3) {
+                return mb_substr($raw, 0, 200);
+            }
+        }
+    }
+    return '';
+}
+
+function salvarComprovante(PDO $db, string $nomeOriginal, string $descricao, string $nomeSalvo, string $hash, string $caminho, string $beneficiario = ''): ?int {
     try {
         // Use ON DUPLICATE KEY UPDATE so that if a prior upload had no description,
         // the new (better) description is stored. COALESCE(descricao, :desc2) keeps
         // the existing description when it is already set (intentional: first write wins
         // so a good description is never overwritten by a worse one). A NULL existing
         // description is replaced by the new value.
+        // beneficiario is always overwritten with the newly extracted value if non-null,
+        // because it is derived from PDF text and improves over time as patterns are refined.
         // LAST_INSERT_ID(id) makes lastInsertId() return the row's id on UPDATE too.
         $stmt = $db->prepare("
-            INSERT INTO comprovantes (nome_arquivo, descricao, hash_arquivo, caminho_arquivo)
-            VALUES (:nome, :desc, :hash, :caminho)
+            INSERT INTO comprovantes (nome_arquivo, descricao, beneficiario, hash_arquivo, caminho_arquivo)
+            VALUES (:nome, :desc, :ben, :hash, :caminho)
             ON DUPLICATE KEY UPDATE
-                descricao = COALESCE(descricao, :desc2),
-                id        = LAST_INSERT_ID(id)
+                descricao    = COALESCE(descricao, :desc2),
+                beneficiario = COALESCE(:ben2, beneficiario),
+                id           = LAST_INSERT_ID(id)
         ");
-        $stmt->execute([':nome' => $nomeOriginal, ':desc' => $descricao ?: null,
-                        ':desc2' => $descricao ?: null, ':hash' => $hash, ':caminho' => $caminho]);
+        $stmt->execute([
+            ':nome'   => $nomeOriginal,
+            ':desc'   => $descricao   ?: null,
+            ':ben'    => $beneficiario ?: null,
+            ':hash'   => $hash,
+            ':caminho'=> $caminho,
+            ':desc2'  => $descricao   ?: null,
+            ':ben2'   => $beneficiario ?: null,
+        ]);
         $id = (int) $db->lastInsertId();
         if ($id > 0) return $id;
         // Fallback: fetch by hash (covers edge cases where LAST_INSERT_ID returns 0)

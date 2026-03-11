@@ -119,9 +119,10 @@ try {
             $params = [':mes' => $month];
 
             if ($search !== '') {
-                $where[]           = '(t.descricao LIKE :search OR comp.descricao LIKE :search2)';
-                $params[':search'] = '%' . $search . '%';
+                $where[]           = '(t.descricao LIKE :search OR comp.beneficiario LIKE :search2 OR comp.descricao LIKE :search3)';
+                $params[':search']  = '%' . $search . '%';
                 $params[':search2'] = '%' . $search . '%';
+                $params[':search3'] = '%' . $search . '%';
             }
             if ($tipo !== '') {
                 $where[]         = 't.tipo = :tipo';
@@ -145,12 +146,13 @@ try {
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes,
                        COALESCE(
+                           NULLIF(comp.beneficiario, ''),
                            NULLIF(comp.descricao, ''),
                            CASE WHEN cc.id IS NOT NULL THEN comp.nome_arquivo ELSE NULL END,
                            t.descricao
                        ) AS descricao,
                        t.descricao AS descricao_extrato,
-                       COALESCE(NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
+                       COALESCE(NULLIF(comp.beneficiario, ''), NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
                        c.nome AS categoria, c.cor AS categoria_cor,
                        (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
                 FROM transacoes t
@@ -184,9 +186,10 @@ try {
             $params = [':ano' => $year];
 
             if ($search !== '') {
-                $where[]           = '(t.descricao LIKE :search OR comp.descricao LIKE :search2)';
-                $params[':search'] = '%' . $search . '%';
+                $where[]           = '(t.descricao LIKE :search OR comp.beneficiario LIKE :search2 OR comp.descricao LIKE :search3)';
+                $params[':search']  = '%' . $search . '%';
                 $params[':search2'] = '%' . $search . '%';
+                $params[':search3'] = '%' . $search . '%';
             }
             if ($tipo !== '') {
                 $where[]         = 't.tipo = :tipo';
@@ -209,12 +212,13 @@ try {
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.mes_referencia,
                        COALESCE(
+                           NULLIF(comp.beneficiario, ''),
                            NULLIF(comp.descricao, ''),
                            CASE WHEN cc.id IS NOT NULL THEN comp.nome_arquivo ELSE NULL END,
                            t.descricao
                        ) AS descricao,
                        t.descricao AS descricao_extrato,
-                       COALESCE(NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
+                       COALESCE(NULLIF(comp.beneficiario, ''), NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
                        c.nome AS categoria, c.cor AS categoria_cor,
                        (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
                 FROM transacoes t
