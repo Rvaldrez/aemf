@@ -146,21 +146,21 @@ try {
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes,
                        COALESCE(
-                           NULLIF(comp.beneficiario, ''),
-                           NULLIF(comp.descricao, ''),
-                           CASE WHEN cc.id IS NOT NULL THEN comp.nome_arquivo ELSE NULL END,
+                           NULLIF(MAX(comp.beneficiario), ''),
+                           NULLIF(MAX(comp.descricao), ''),
+                           CASE WHEN MAX(cc.id) IS NOT NULL THEN MAX(comp.nome_arquivo) ELSE NULL END,
                            t.descricao
                        ) AS descricao,
                        t.descricao AS descricao_extrato,
-                       COALESCE(NULLIF(comp.beneficiario, ''), NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
-                       c.nome AS categoria, c.cor AS categoria_cor,
+                       COALESCE(NULLIF(MAX(comp.beneficiario), ''), NULLIF(MAX(comp.descricao), ''), MAX(comp.nome_arquivo)) AS descricao_comprovante,
+                       MAX(c.nome) AS categoria, MAX(c.cor) AS categoria_cor,
                        (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
                 FROM transacoes t
                 LEFT JOIN categorias   c    ON c.id    = t.categoria_id
                 LEFT JOIN conciliacoes cc   ON cc.transacao_id   = t.id
                 LEFT JOIN comprovantes comp ON comp.id = cc.comprovante_id
                 $whereSQL
-                GROUP BY t.id
+                GROUP BY t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.descricao
                 ORDER BY t.data DESC, t.id DESC
                 LIMIT :lim OFFSET :off
             ");
@@ -212,21 +212,21 @@ try {
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.mes_referencia,
                        COALESCE(
-                           NULLIF(comp.beneficiario, ''),
-                           NULLIF(comp.descricao, ''),
-                           CASE WHEN cc.id IS NOT NULL THEN comp.nome_arquivo ELSE NULL END,
+                           NULLIF(MAX(comp.beneficiario), ''),
+                           NULLIF(MAX(comp.descricao), ''),
+                           CASE WHEN MAX(cc.id) IS NOT NULL THEN MAX(comp.nome_arquivo) ELSE NULL END,
                            t.descricao
                        ) AS descricao,
                        t.descricao AS descricao_extrato,
-                       COALESCE(NULLIF(comp.beneficiario, ''), NULLIF(comp.descricao, ''), comp.nome_arquivo) AS descricao_comprovante,
-                       c.nome AS categoria, c.cor AS categoria_cor,
+                       COALESCE(NULLIF(MAX(comp.beneficiario), ''), NULLIF(MAX(comp.descricao), ''), MAX(comp.nome_arquivo)) AS descricao_comprovante,
+                       MAX(c.nome) AS categoria, MAX(c.cor) AS categoria_cor,
                        (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
                 FROM transacoes t
                 LEFT JOIN categorias   c    ON c.id    = t.categoria_id
                 LEFT JOIN conciliacoes cc   ON cc.transacao_id   = t.id
                 LEFT JOIN comprovantes comp ON comp.id = cc.comprovante_id
                 $whereSQL
-                GROUP BY t.id
+                GROUP BY t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.mes_referencia, t.descricao
                 ORDER BY t.data DESC, t.id DESC
                 LIMIT :lim OFFSET :off
             ");
