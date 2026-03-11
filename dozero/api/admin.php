@@ -77,11 +77,12 @@ try {
 
         case 'saveReferencia':
             $stmt = $db->prepare("
-                INSERT INTO referencias_categoria (padrao, categoria_id, tipo_transacao, observacoes)
-                VALUES (:padrao, :cat_id, :tipo, :obs)
+                INSERT INTO referencias_categoria (padrao, descricao, categoria_id, tipo_transacao, observacoes)
+                VALUES (:padrao, :desc, :cat_id, :tipo, :obs)
             ");
             $stmt->execute([
                 ':padrao' => $data['padrao']          ?? '',
+                ':desc'   => $data['descricao']       ?? null,
                 ':cat_id' => (int)($data['categoria_id'] ?? 0) ?: null,
                 ':tipo'   => $data['tipo_transacao']  ?? null,
                 ':obs'    => $data['observacoes']     ?? null,
@@ -93,11 +94,12 @@ try {
             $id = (int)($data['id'] ?? 0);
             $stmt = $db->prepare("
                 UPDATE referencias_categoria
-                SET padrao=:padrao, categoria_id=:cat_id, tipo_transacao=:tipo, observacoes=:obs
+                SET padrao=:padrao, descricao=:desc, categoria_id=:cat_id, tipo_transacao=:tipo, observacoes=:obs
                 WHERE id=:id
             ");
             $stmt->execute([
                 ':padrao' => $data['padrao']          ?? '',
+                ':desc'   => $data['descricao']       ?? null,
                 ':cat_id' => (int)($data['categoria_id'] ?? 0) ?: null,
                 ':tipo'   => $data['tipo_transacao']  ?? null,
                 ':obs'    => $data['observacoes']     ?? null,
@@ -129,17 +131,75 @@ try {
 
         case 'classificarTransacao':
             $id = (int)($data['id'] ?? 0);
-            $stmt = $db->prepare("
-                UPDATE transacoes
-                SET categoria_id=:cat_id, classificacao=:classif, observacoes=:obs
-                WHERE id=:id
-            ");
-            $stmt->execute([
-                ':cat_id'  => (int)($data['categoria_id'] ?? 0) ?: null,
-                ':classif' => $data['classificacao'] ?? null,
-                ':obs'     => $data['observacoes']   ?? null,
-                ':id'      => $id,
-            ]);
+            $newDesc = isset($data['descricao']) ? trim($data['descricao']) : null;
+
+            // Build SET clause: always update categoria/classif/observacoes.
+            // Also update descricao when the caller provides a non-empty value.
+            if ($newDesc !== null && $newDesc !== '') {
+                $stmt = $db->prepare("
+                    UPDATE transacoes
+                    SET descricao=:desc, categoria_id=:cat_id, classificacao=:classif, observacoes=:obs
+                    WHERE id=:id
+                ");
+                $stmt->execute([
+                    ':desc'    => $newDesc,
+                    ':cat_id'  => (int)($data['categoria_id'] ?? 0) ?: null,
+                    ':classif' => $data['classificacao'] ?? null,
+                    ':obs'     => $data['observacoes']   ?? null,
+                    ':id'      => $id,
+                ]);
+
+                // Upsert a referencia so future auto-classification can use this description
+                $catId  = (int)($data['categoria_id'] ?? 0) ?: null;
+                $tipo   = $data['tipo_transacao'] ?? null;
+                $refDesc = isset($data['ref_descricao']) ? trim($data['ref_descricao']) : null;
+                $refObs  = isset($data['ref_observacoes']) ? trim($data['ref_observacoes']) : null;
+                if ($catId) {
+                    // Check if a reference for this exact pattern already exists
+                    $existsStmt = $db->prepare("SELECT id FROM referencias_categoria WHERE padrao = :padrao AND ativo = 1 LIMIT 1");
+                    $existsStmt->execute([':padrao' => $newDesc]);
+                    $existing = $existsStmt->fetchColumn();
+                    if ($existing) {
+                        $db->prepare("
+                            UPDATE referencias_categoria
+                            SET descricao=COALESCE(:desc, descricao),
+                                categoria_id=:cat_id,
+                                tipo_transacao=COALESCE(:tipo, tipo_transacao),
+                                observacoes=COALESCE(:obs, observacoes)
+                            WHERE id=:id
+                        ")->execute([
+                            ':desc'    => $refDesc ?: null,
+                            ':cat_id'  => $catId,
+                            ':tipo'    => $tipo ?: null,
+                            ':obs'     => $refObs ?: null,
+                            ':id'      => (int)$existing,
+                        ]);
+                    } else {
+                        $db->prepare("
+                            INSERT INTO referencias_categoria (padrao, descricao, categoria_id, tipo_transacao, observacoes)
+                            VALUES (:padrao, :desc, :cat_id, :tipo, :obs)
+                        ")->execute([
+                            ':padrao'  => $newDesc,
+                            ':desc'    => $refDesc ?: null,
+                            ':cat_id'  => $catId,
+                            ':tipo'    => $tipo ?: null,
+                            ':obs'     => $refObs ?: null,
+                        ]);
+                    }
+                }
+            } else {
+                $stmt = $db->prepare("
+                    UPDATE transacoes
+                    SET categoria_id=:cat_id, classificacao=:classif, observacoes=:obs
+                    WHERE id=:id
+                ");
+                $stmt->execute([
+                    ':cat_id'  => (int)($data['categoria_id'] ?? 0) ?: null,
+                    ':classif' => $data['classificacao'] ?? null,
+                    ':obs'     => $data['observacoes']   ?? null,
+                    ':id'      => $id,
+                ]);
+            }
             echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
             break;
 

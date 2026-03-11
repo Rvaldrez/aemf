@@ -309,14 +309,13 @@ tbody tr:last-child td{border-bottom:none}
                             <th>Data</th>
                             <th>Descrição</th>
                             <th>Categoria</th>
-                            <th>Classificação</th>
+                            <th>Observação</th>
                             <th style="text-align:right">Valor (R$)</th>
                             <th>Tipo</th>
-                            <th>Conc.</th>
                         </tr>
                     </thead>
                     <tbody id="txBody">
-                        <tr class="loading-row"><td colspan="7"><div class="spinner"></div> Carregando…</td></tr>
+                        <tr class="loading-row"><td colspan="6"><div class="spinner"></div> Carregando…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -497,7 +496,7 @@ async function loadSummary() {
 // ── Transactions table ────────────────────────────────────────────────────
 async function loadTransactions() {
     const body = document.getElementById('txBody');
-    body.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div> Carregando…</td></tr>';
+    body.innerHTML = '<tr class="loading-row"><td colspan="6"><div class="spinner"></div> Carregando…</td></tr>';
     document.getElementById('txCount').textContent = '';
 
     const search = encodeURIComponent(document.getElementById('searchInput').value.trim());
@@ -522,7 +521,7 @@ async function loadTransactions() {
             `Exibindo ${rows.length} de ${j.total} — Página ${j.page} de ${Math.max(1, j.pages)}`;
 
         if (rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#adb5bd"><i class="fa-solid fa-inbox"></i> Nenhuma transação encontrada.</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#adb5bd"><i class="fa-solid fa-inbox"></i> Nenhuma transação encontrada.</td></tr>';
         } else {
             body.innerHTML = rows.map(t => {
                 const v   = parseFloat(t.valor);
@@ -534,37 +533,32 @@ async function loadTransactions() {
                 const cat = t.categoria
                     ? `${catDot}<span style="font-size:13px">${esc(t.categoria)}</span>`
                     : '<span class="text-muted">—</span>';
-                const classif = classBadge(t.classificacao);
 
-                // Req 1: show comprovante description if available, with indicator
-                // esc() converts " → &quot; making it safe in HTML attribute context
                 const descText   = esc(t.descricao);
                 const rawExtrato = esc(t.descricao_extrato || '');
-                const hasComp    = t.descricao_comprovante && t.descricao_comprovante.trim() !== '';
-                const descEl = hasComp
-                    ? `<span class="desc-comp" title="Extrato: ${rawExtrato}">${descText}</span><span class="desc-tag"><i class="fa-solid fa-file-pdf"></i> comprovante</span>`
-                    : `<span title="${rawExtrato}">${descText}</span>`;
+                const descEl = rawExtrato && rawExtrato !== descText
+                    ? `<span title="Extrato: ${rawExtrato}">${descText}</span>`
+                    : `<span>${descText}</span>`;
 
-                const conc = parseInt(t.conciliado) > 0
-                    ? '<span class="badge badge-ok"><i class="fa-solid fa-check"></i></span>'
-                    : '<span style="color:#ddd">—</span>';
+                const obs = t.ref_observacoes
+                    ? `<span style="font-size:12px;color:#555">${esc(t.ref_observacoes)}</span>`
+                    : '<span class="text-muted">—</span>';
 
                 const mes = t.mes_referencia ? `<br><span style="font-size:11px;color:var(--muted)">${t.mes_referencia}</span>` : '';
                 return `<tr>
                     <td style="white-space:nowrap">${fmtDate(t.data)}${periodMode==='anual'?mes:''}</td>
                     <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descEl}</td>
                     <td>${cat}</td>
-                    <td>${classif}</td>
+                    <td>${obs}</td>
                     <td style="text-align:right" class="${cls}">${sig} ${fmt(v)}</td>
                     <td><span class="badge badge-${esc(t.tipo)}">${t.tipo === 'credito' ? 'Crédito' : 'Débito'}</span></td>
-                    <td style="text-align:center">${conc}</td>
                 </tr>`;
             }).join('');
         }
 
         renderPagination(j.page, j.pages, j.total);
     } catch (e) {
-        body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc3545">Erro: ${e.message}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#dc3545">Erro: ${e.message}</td></tr>`;
         showError('Erro ao carregar transações: ' + e.message);
     }
 }

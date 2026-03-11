@@ -78,14 +78,17 @@ tbody tr:last-child td{border-bottom:none}
 .alert-danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
 
 /* Classify */
-.classify-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;flex-wrap:wrap}
+.classify-row{display:grid;grid-template-columns:90px 1fr 1fr;gap:8px;padding:12px 0;border-bottom:1px solid #f0f0f0;align-items:start}
 .classify-row:last-child{border-bottom:none}
+.classify-row-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;grid-column:1/-1}
 .classify-desc{flex:1;min-width:200px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .classify-val{font-size:13px;font-weight:600;color:var(--danger);white-space:nowrap}
 .classify-date{font-size:12px;color:#aaa;white-space:nowrap}
-.classify-selects{display:flex;gap:6px;flex-wrap:wrap}
-.classify-selects select{padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px}
-.classify-selects select:focus{border-color:var(--accent);outline:none}
+.classify-fields{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:600px){.classify-fields{grid-template-columns:1fr}.classify-row{grid-template-columns:1fr}}
+.classify-fields input,.classify-fields select{padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;width:100%}
+.classify-fields input:focus,.classify-fields select:focus{border-color:var(--accent);outline:none}
+.classify-actions{grid-column:1/-1;display:flex;gap:6px}
 
 .spinner{display:inline-block;width:16px;height:16px;border:3px solid rgba(45,125,210,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -185,11 +188,15 @@ tbody tr:last-child td{border-bottom:none}
                         <input type="text" id="refPadrao" placeholder="Ex: ELETROPAULO">
                     </div>
                     <div class="form-group">
-                        <label>Categoria *</label>
-                        <select id="refCat"><option value="">— Selecione —</option></select>
+                        <label>Descrição (substitui o descritivo no relatório)</label>
+                        <input type="text" id="refDesc" placeholder="Ex: Conta de Luz CPFL">
                     </div>
                 </div>
                 <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoria *</label>
+                        <select id="refCat"><option value="">— Selecione —</option></select>
+                    </div>
                     <div class="form-group">
                         <label>Tipo de Transação</label>
                         <select id="refTipo">
@@ -199,8 +206,10 @@ tbody tr:last-child td{border-bottom:none}
                             <option>RENDIMENTO</option><option>CONCESSIONARIA</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Observações</label>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="grid-column:1/-1">
+                        <label>Observações (aparece na coluna "Observação" do relatório)</label>
                         <input type="text" id="refObs" placeholder="Opcional">
                     </div>
                 </div>
@@ -217,8 +226,8 @@ tbody tr:last-child td{border-bottom:none}
             </div>
             <div style="overflow-x:auto">
                 <table>
-                    <thead><tr><th>Padrão</th><th>Categoria</th><th>Tipo</th><th>Observações</th><th>Ações</th></tr></thead>
-                    <tbody id="refBody"><tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr></tbody>
+                    <thead><tr><th>Padrão</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Observações</th><th>Ações</th></tr></thead>
+                    <tbody id="refBody"><tr class="loading-row"><td colspan="6"><div class="spinner"></div></td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -431,9 +440,10 @@ async function loadRefs(){
     const j = await api('action=getReferencias');
     allRefs  = j.data || [];
     const tb = document.getElementById('refBody');
-    if(!allRefs.length){ tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:#adb5bd">Nenhuma referência cadastrada.</td></tr>'; return; }
+    if(!allRefs.length){ tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#adb5bd">Nenhuma referência cadastrada.</td></tr>'; return; }
     tb.innerHTML = allRefs.map(r => `<tr>
         <td style="font-weight:600">${esc(r.padrao)}</td>
+        <td>${esc(r.descricao||'')}</td>
         <td>${esc(r.categoria_nome||'—')}</td>
         <td>${esc(r.tipo_transacao||'—')}</td>
         <td>${esc(r.observacoes||'')}</td>
@@ -450,6 +460,7 @@ async function salvarRef(){
     if(!padrao){ flash('refErr','Padrão é obrigatório.','danger'); return; }
     const payload = {
         padrao,
+        descricao:      document.getElementById('refDesc').value.trim() || null,
         categoria_id:   document.getElementById('refCat').value   || null,
         tipo_transacao: document.getElementById('refTipo').value  || null,
         observacoes:    document.getElementById('refObs').value.trim() || null,
@@ -466,6 +477,7 @@ function editRef(id){
     if(!r) return;
     document.getElementById('refId').value     = r.id;
     document.getElementById('refPadrao').value = r.padrao;
+    document.getElementById('refDesc').value   = r.descricao || '';
     document.getElementById('refCat').value    = r.categoria_id || '';
     document.getElementById('refTipo').value   = r.tipo_transacao || '';
     document.getElementById('refObs').value    = r.observacoes || '';
@@ -481,7 +493,7 @@ async function delRef(id){
 }
 
 function resetRefForm(){
-    ['refId','refPadrao','refObs'].forEach(id => document.getElementById(id).value = '');
+    ['refId','refPadrao','refDesc','refObs'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('refCat').value  = '';
     document.getElementById('refTipo').value = '';
     document.getElementById('refFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Nova Referência';
@@ -501,30 +513,61 @@ async function loadUncategorized(){
     }
 
     const catOpts = allCats.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    const tipoOpts = ['PIX','TED','BOLETO','DEBITO','TARIFA','TRIBUTO','RENDIMENTO','CONCESSIONARIA']
+        .map(t => `<option value="${t}">${t}</option>`).join('');
     body.innerHTML = rows.map(t => `
         <div class="classify-row">
-            <span class="classify-date">${fmtDate(t.data)}</span>
-            <span class="classify-desc" title="${esc(t.descricao)}">${esc(t.descricao)}</span>
-            <span class="classify-val">R$ ${parseFloat(t.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
-            <div class="classify-selects">
-                <select id="clsCat_${t.id}" title="Categoria">
-                    <option value="">Categoria…</option>${catOpts}
-                </select>
-                <select id="clsType_${t.id}" title="Classificação">
-                    <option value="">Classif…</option>
-                    <option value="aemf">AEMF</option>
-                    <option value="pf">PF</option>
-                    <option value="receita">Receita</option>
-                </select>
-                <button class="btn btn-success btn-sm" onclick="salvarClassif(${t.id})"><i class="fa-solid fa-check"></i></button>
+            <div class="classify-row-meta">
+                <span class="classify-date">${fmtDate(t.data)}</span>
+                <span class="classify-val">R$ ${parseFloat(t.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+            </div>
+            <div class="classify-fields">
+                <div>
+                    <label style="font-size:11px;color:#888">Descritivo (texto da transação)</label>
+                    <input id="clsDesc_${t.id}" value="${esc(t.descricao)}" title="Edite para substituir o descritivo">
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#888">Descrição amigável (substitui no relatório)</label>
+                    <input id="clsRefDesc_${t.id}" placeholder="Ex: Conta de Luz" value="">
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#888">Categoria</label>
+                    <select id="clsCat_${t.id}">
+                        <option value="">— Selecione —</option>${catOpts}
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#888">Tipo de Transação</label>
+                    <select id="clsTipo_${t.id}">
+                        <option value="">— Todos —</option>${tipoOpts}
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#888">Observações (aparece no relatório)</label>
+                    <input id="clsObs_${t.id}" placeholder="Opcional">
+                </div>
+            </div>
+            <div class="classify-actions">
+                <button class="btn btn-success btn-sm" onclick="salvarClassif(${t.id})"><i class="fa-solid fa-check"></i> Salvar</button>
             </div>
         </div>`).join('');
 }
 
 async function salvarClassif(id){
-    const catId = document.getElementById('clsCat_' + id).value;
-    const classif = document.getElementById('clsType_' + id).value;
-    const j = await api('action=classificarTransacao', { id, categoria_id: catId||null, classificacao: classif||null });
+    const catId   = document.getElementById('clsCat_' + id)?.value || null;
+    const newDesc = document.getElementById('clsDesc_' + id)?.value.trim() || null;
+    const refDesc = document.getElementById('clsRefDesc_' + id)?.value.trim() || null;
+    const tipo    = document.getElementById('clsTipo_' + id)?.value || null;
+    const obs     = document.getElementById('clsObs_' + id)?.value.trim() || null;
+    const j = await api('action=classificarTransacao', {
+        id,
+        descricao:       newDesc,
+        categoria_id:    catId,
+        observacoes:     obs,
+        ref_descricao:   refDesc,
+        tipo_transacao:  tipo,
+        ref_observacoes: obs,
+    });
     if(j.success){
         const row = document.querySelector(`#clsCat_${id}`)?.closest('.classify-row');
         if(row){ row.style.background='#e8f5e9'; setTimeout(() => row.remove(), 600); }

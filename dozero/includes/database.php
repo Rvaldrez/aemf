@@ -221,6 +221,12 @@ function setupSchema(PDO $db): void {
             ");
         }
 
+        // Add descricao column to referencias_categoria if absent
+        $colsRefDesc = $db->query("SHOW COLUMNS FROM referencias_categoria LIKE 'descricao'")->fetchAll();
+        if (empty($colsRefDesc)) {
+            $db->exec("ALTER TABLE referencias_categoria ADD COLUMN descricao VARCHAR(500) DEFAULT NULL AFTER padrao");
+        }
+
         // ── saldos_mensais ───────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS saldos_mensais (

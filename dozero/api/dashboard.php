@@ -119,7 +119,7 @@ try {
             $params = [':mes' => $month];
 
             if ($search !== '') {
-                $where[]           = '(t.descricao LIKE :search OR comp.beneficiario LIKE :search2 OR comp.descricao LIKE :search3)';
+                $where[]           = '(t.descricao LIKE :search OR r.descricao LIKE :search2 OR r.observacoes LIKE :search3)';
                 $params[':search']  = '%' . $search . '%';
                 $params[':search2'] = '%' . $search . '%';
                 $params[':search3'] = '%' . $search . '%';
@@ -132,12 +132,11 @@ try {
             $whereSQL = 'WHERE ' . implode(' AND ', $where);
             $offset   = ($page - 1) * $limit;
 
-            // Count — needs join for search to work correctly
+            // Count
             $cntStmt = $db->prepare("
                 SELECT COUNT(DISTINCT t.id)
                 FROM transacoes t
-                LEFT JOIN conciliacoes cc  ON cc.transacao_id   = t.id
-                LEFT JOIN comprovantes comp ON comp.id = cc.comprovante_id
+                LEFT JOIN referencias_categoria r ON r.ativo = 1 AND t.descricao LIKE CONCAT('%', r.padrao, '%')
                 $whereSQL
             ");
             $cntStmt->execute($params);
@@ -145,20 +144,13 @@ try {
 
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes,
-                       COALESCE(
-                           NULLIF(MAX(comp.beneficiario), ''),
-                           NULLIF(MAX(comp.descricao), ''),
-                           CASE WHEN MAX(cc.id) IS NOT NULL THEN MAX(comp.nome_arquivo) ELSE NULL END,
-                           t.descricao
-                       ) AS descricao,
+                       COALESCE(NULLIF(MAX(r.descricao), ''), t.descricao) AS descricao,
                        t.descricao AS descricao_extrato,
-                       COALESCE(NULLIF(MAX(comp.beneficiario), ''), NULLIF(MAX(comp.descricao), ''), MAX(comp.nome_arquivo)) AS descricao_comprovante,
-                       MAX(c.nome) AS categoria, MAX(c.cor) AS categoria_cor,
-                       (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
+                       MAX(r.observacoes) AS ref_observacoes,
+                       MAX(c.nome) AS categoria, MAX(c.cor) AS categoria_cor
                 FROM transacoes t
-                LEFT JOIN categorias   c    ON c.id    = t.categoria_id
-                LEFT JOIN conciliacoes cc   ON cc.transacao_id   = t.id
-                LEFT JOIN comprovantes comp ON comp.id = cc.comprovante_id
+                LEFT JOIN categorias c ON c.id = t.categoria_id
+                LEFT JOIN referencias_categoria r ON r.ativo = 1 AND t.descricao LIKE CONCAT('%', r.padrao, '%')
                 $whereSQL
                 GROUP BY t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.descricao
                 ORDER BY t.data DESC, t.id DESC
@@ -186,7 +178,7 @@ try {
             $params = [':ano' => $year];
 
             if ($search !== '') {
-                $where[]           = '(t.descricao LIKE :search OR comp.beneficiario LIKE :search2 OR comp.descricao LIKE :search3)';
+                $where[]           = '(t.descricao LIKE :search OR r.descricao LIKE :search2 OR r.observacoes LIKE :search3)';
                 $params[':search']  = '%' . $search . '%';
                 $params[':search2'] = '%' . $search . '%';
                 $params[':search3'] = '%' . $search . '%';
@@ -202,8 +194,7 @@ try {
             $cntStmt = $db->prepare("
                 SELECT COUNT(DISTINCT t.id)
                 FROM transacoes t
-                LEFT JOIN conciliacoes cc   ON cc.transacao_id   = t.id
-                LEFT JOIN comprovantes comp ON comp.id = cc.comprovante_id
+                LEFT JOIN referencias_categoria r ON r.ativo = 1 AND t.descricao LIKE CONCAT('%', r.padrao, '%')
                 $whereSQL
             ");
             $cntStmt->execute($params);
@@ -211,20 +202,13 @@ try {
 
             $stmt = $db->prepare("
                 SELECT t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.mes_referencia,
-                       COALESCE(
-                           NULLIF(MAX(comp.beneficiario), ''),
-                           NULLIF(MAX(comp.descricao), ''),
-                           CASE WHEN MAX(cc.id) IS NOT NULL THEN MAX(comp.nome_arquivo) ELSE NULL END,
-                           t.descricao
-                       ) AS descricao,
+                       COALESCE(NULLIF(MAX(r.descricao), ''), t.descricao) AS descricao,
                        t.descricao AS descricao_extrato,
-                       COALESCE(NULLIF(MAX(comp.beneficiario), ''), NULLIF(MAX(comp.descricao), ''), MAX(comp.nome_arquivo)) AS descricao_comprovante,
-                       MAX(c.nome) AS categoria, MAX(c.cor) AS categoria_cor,
-                       (SELECT COUNT(*) FROM conciliacoes cc2 WHERE cc2.transacao_id = t.id) AS conciliado
+                       MAX(r.observacoes) AS ref_observacoes,
+                       MAX(c.nome) AS categoria, MAX(c.cor) AS categoria_cor
                 FROM transacoes t
-                LEFT JOIN categorias   c    ON c.id    = t.categoria_id
-                LEFT JOIN conciliacoes cc   ON cc.transacao_id   = t.id
-                LEFT JOIN comprovantes comp ON comp.id = cc.comprovante_id
+                LEFT JOIN categorias c ON c.id = t.categoria_id
+                LEFT JOIN referencias_categoria r ON r.ativo = 1 AND t.descricao LIKE CONCAT('%', r.padrao, '%')
                 $whereSQL
                 GROUP BY t.id, t.data, t.valor, t.tipo, t.classificacao, t.observacoes, t.mes_referencia, t.descricao
                 ORDER BY t.data DESC, t.id DESC
