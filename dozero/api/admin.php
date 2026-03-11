@@ -308,17 +308,23 @@ try {
 
 // ── Helper ────────────────────────────────────────────────────────────────
 function recalcularSaldo(PDO $db, string $mes): void {
-    $stmt = $db->prepare("
+    // Get transaction totals for this month
+    $txStmt = $db->prepare("
         SELECT
             COALESCE(SUM(CASE WHEN tipo='credito' THEN valor END), 0) AS creditos,
             COALESCE(SUM(CASE WHEN tipo='debito'  THEN valor END), 0) AS debitos
         FROM transacoes WHERE mes_referencia = :mes
     ");
-    $stmt->execute([':mes' => $mes]);
-    $row = $stmt->fetch();
+    $txStmt->execute([':mes' => $mes]);
+    $row = $txStmt->fetch();
 
     $creditos = (float)$row['creditos'];
     $debitos  = (float)$row['debitos'];
+
+    // Read existing saldo_inicial (may have been manually set); fall back to 0
+    $siStmt = $db->prepare("SELECT saldo_inicial FROM saldos_mensais WHERE mes_referencia = :mes LIMIT 1");
+    $siStmt->execute([':mes' => $mes]);
+    $saldoInicial = (float)($siStmt->fetchColumn() ?: 0.0);
 
     $db->prepare("
         INSERT INTO saldos_mensais (mes_referencia, total_creditos, total_debitos, saldo_final)
@@ -326,14 +332,16 @@ function recalcularSaldo(PDO $db, string $mes): void {
         ON DUPLICATE KEY UPDATE
             total_creditos = :cred2,
             total_debitos  = :deb2,
+            saldo_final    = :saldo2,
             updated_at     = NOW()
     ")->execute([
         ':mes'    => $mes,
         ':cred'   => $creditos,
         ':deb'    => $debitos,
-        ':saldo'  => $creditos - $debitos,
+        ':saldo'  => $saldoInicial + $creditos - $debitos,
         ':cred2'  => $creditos,
         ':deb2'   => $debitos,
+        ':saldo2' => $saldoInicial + $creditos - $debitos,
     ]);
 }
 

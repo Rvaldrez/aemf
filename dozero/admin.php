@@ -289,7 +289,10 @@ tbody tr:last-child td{border-bottom:none}
         <div class="panel">
             <div class="panel-header">
                 <h3><i class="fa-solid fa-table"></i> Saldos por Mês</h3>
-                <button class="btn btn-outline btn-sm" onclick="loadSaldos()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-primary btn-sm" onclick="recalcularCascata(event)"><i class="fa-solid fa-calculator"></i> Recalcular Cascata</button>
+                    <button class="btn btn-outline btn-sm" onclick="loadSaldos()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                </div>
             </div>
             <div style="overflow-x:auto">
                 <table>
@@ -632,6 +635,21 @@ async function setSaldoInicial(){
         loadSaldos();
     } else {
         flash('saldosErr', j.error || 'Erro ao salvar.', 'danger');
+    }
+}
+
+async function recalcularCascata(event){
+    const btn = event.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Calculando…';
+    const j = await api('action=recalcularCascata');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Recalcular Cascata';
+    if(j.success){
+        flash('saldosAlert', 'Cascata de saldos recalculada com sucesso.', 'success');
+        loadSaldos();
+    } else {
+        flash('saldosErr', j.error || 'Erro ao recalcular.', 'danger');
     }
 }
 

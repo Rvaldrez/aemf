@@ -167,16 +167,14 @@ function importarOFX(string $tmp, PDO $db): array {
         }
     }
 
-    // Store the OFX-derived opening balance for the earliest affected month
-    // so that recalcularCascata can use it as the starting point.
-    // saldo_final will be recomputed by recalcularCascata; set to 0 here.
+    // INSERT new row with OFX-derived saldo_inicial; preserve any manually-set value on duplicate
     if ($saldoInicialOFX !== null && !empty($mesAfetados)) {
         $primeiroMes = min(array_keys($mesAfetados));
         $db->prepare("
             INSERT INTO saldos_mensais (mes_referencia, saldo_inicial, total_creditos, total_debitos, saldo_final)
             VALUES (:mes, :si, 0, 0, 0)
-            ON DUPLICATE KEY UPDATE saldo_inicial = :si2, updated_at = NOW()
-        ")->execute([':mes' => $primeiroMes, ':si' => $saldoInicialOFX, ':si2' => $saldoInicialOFX]);
+            ON DUPLICATE KEY UPDATE updated_at = NOW()
+        ")->execute([':mes' => $primeiroMes, ':si' => $saldoInicialOFX]);
     }
 
     return [
@@ -500,26 +498,32 @@ function aplicarRegras(PDO $db): void {
  * Recalcula um único mês (totais de crédito/débito) sem encadear meses anteriores.
  */
 function recalcularSaldo(PDO $db, string $mes): void {
-    $stmt = $db->prepare("
+    $txStmt = $db->prepare("
         SELECT
             COALESCE(SUM(CASE WHEN tipo='credito' THEN valor END), 0) AS creditos,
             COALESCE(SUM(CASE WHEN tipo='debito'  THEN valor END), 0) AS debitos
         FROM transacoes WHERE mes_referencia = :mes
     ");
-    $stmt->execute([':mes' => $mes]);
-    $row = $stmt->fetch();
+    $txStmt->execute([':mes' => $mes]);
+    $row = $txStmt->fetch();
 
     $c = (float)$row['creditos'];
     $d = (float)$row['debitos'];
 
-    // Preserve saldo_inicial set by cascata; only update totals here
+    // Read existing saldo_inicial — preserve any manually-set value
+    $siStmt = $db->prepare("SELECT saldo_inicial FROM saldos_mensais WHERE mes_referencia = :mes LIMIT 1");
+    $siStmt->execute([':mes' => $mes]);
+    $si = (float)($siStmt->fetchColumn() ?: 0.0);
+
+    // Update totals and saldo_final; never touch saldo_inicial here
     $db->prepare("
         INSERT INTO saldos_mensais (mes_referencia, total_creditos, total_debitos, saldo_final)
         VALUES (:mes, :c, :d, :s)
         ON DUPLICATE KEY UPDATE
             total_creditos = :c2,
             total_debitos  = :d2,
+            saldo_final    = :s2,
             updated_at     = NOW()
-    ")->execute([':mes' => $mes, ':c' => $c, ':d' => $d, ':s' => $c - $d,
-                 ':c2' => $c, ':d2' => $d]);
+    ")->execute([':mes' => $mes, ':c' => $c, ':d' => $d, ':s' => $si + $c - $d,
+                 ':c2' => $c, ':d2' => $d, ':s2' => $si + $c - $d]);
 }
