@@ -24,7 +24,7 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f0f4f8;color:#333;min-
 /* ── NAV ── */
 nav{background:var(--primary);color:#fff;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .nav-brand{font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px}
-.nav-brand-logo{height:24px;width:24px;object-fit:contain;display:inline-block;vertical-align:middle;flex-shrink:0}
+.nav-brand-logo{height:26px;width:26px;min-width:26px;min-height:26px;object-fit:contain;display:block;flex-shrink:0}
 .nav-links a{color:rgba(255,255,255,.85);text-decoration:none;margin-left:20px;font-size:14px;padding:6px 10px;border-radius:6px;transition:.2s}
 .nav-links a:hover,.nav-links a.active{background:rgba(255,255,255,.15);color:#fff}
 .nav-user{font-size:13px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:12px}
@@ -38,7 +38,7 @@ nav{background:var(--primary);color:#fff;padding:0 24px;display:flex;align-items
 .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
 .toolbar h2{font-size:22px;color:var(--primary);font-weight:700}
 .toolbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-select,input[type=month]{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:#495057;outline:none;background:#fff;cursor:pointer;min-width:160px}
+select,input[type=month]{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:#495057;outline:none;background:#fff;cursor:pointer;min-width:200px}
 select:focus,input[type=month]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,125,210,.12)}
 .btn{padding:8px 18px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.2s;text-decoration:none}
 .btn-primary{background:var(--accent);color:#fff}
@@ -167,6 +167,13 @@ tbody tr:last-child td{border-bottom:none}
     .tx-table thead th:nth-child(1),.tx-table thead th:nth-child(2),.tx-table thead th:nth-child(3){background:#f8f9fa}
     .tx-table tbody tr td:nth-child(1),.tx-table tbody tr td:nth-child(2),.tx-table tbody tr td:nth-child(3){background:#fff}
     .tx-table tbody tr:hover td:nth-child(1),.tx-table tbody tr:hover td:nth-child(2),.tx-table tbody tr:hover td:nth-child(3){background:#fafbfc}
+}
+
+/* ── Landscape phones (keyboard-visible or short viewport) ── */
+@media(orientation:landscape) and (max-height:500px){
+    .toolbar{flex-wrap:wrap}
+    .toolbar-right{flex-wrap:wrap}
+    #periodoMensal input,#periodoAnual select{min-width:200px;width:auto}
 }
 </style>
 </head>
@@ -304,6 +311,11 @@ tbody tr:last-child td{border-bottom:none}
             </div>
 
             <div style="overflow-x:auto">
+                <!-- hint shown until user clicks a row for the first time -->
+                <div id="txClickHint" style="display:flex;align-items:center;gap:7px;font-size:12px;color:#9099a8;padding:6px 2px 10px 2px;user-select:none">
+                    <i class="fa-regular fa-hand-pointer" style="font-size:13px;opacity:.7"></i>
+                    <span>Toque em qualquer linha para ver os detalhes do lançamento</span>
+                </div>
                 <table class="tx-table">
                     <thead>
                         <tr>
@@ -803,12 +815,22 @@ function renderChart(labels, datasets) {
 function openTxModal(i) {
     const t = txDataMap[i];
     if (!t) return;
+    // dismiss hint permanently after first click
+    const hint = document.getElementById('txClickHint');
+    // localStorage may be unavailable in private-browsing mode — ignore errors silently
+    if (hint) { hint.style.display = 'none'; try { localStorage.setItem('txHintSeen','1'); } catch(_){} }
     const v   = parseFloat(t.valor);
     const cls = t.tipo === 'credito' ? 'color:#28a745' : 'color:#dc3545';
     const sig = t.tipo === 'credito' ? '+' : '-';
+    const tipoHtml = (function(tipo){
+        const isCredit = tipo === 'credito';
+        const color = isCredit ? '#28a745' : '#dc3545';
+        const label = isCredit ? 'Crédito' : 'Débito';
+        return `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;min-width:10px;border-radius:50%;background:${color};display:inline-block"></span><span style="color:${color};border-bottom:2px solid ${color};font-weight:600;padding-bottom:1px">${label}</span></span>`;
+    })(t.tipo);
     const fields = [
         ['Data',      fmtDate(t.data)],
-        ['Tipo',      t.tipo === 'credito' ? 'Crédito' : 'Débito'],
+        ['Tipo',      tipoHtml],
         ['Valor',     `<strong style="${cls}">${sig} ${fmt(v)}</strong>`],
         ['Descrição', esc(t.descricao || '—')],
     ];
@@ -827,6 +849,8 @@ function closeTxModal() { document.getElementById('txModal').style.display = 'no
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTxModal(); });
 
 // ── Init ──────────────────────────────────────────────────────────────────
+// hide click hint if user has seen it before (localStorage unavailable in private-browsing — ignore)
+try { if (localStorage.getItem('txHintSeen')) { const h = document.getElementById('txClickHint'); if(h) h.style.display='none'; } } catch(_){}
 init();
 </script>
 </body>
