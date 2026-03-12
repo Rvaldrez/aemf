@@ -292,7 +292,7 @@ try {
         // ── by-category (pie chart data) ──────────────────────────────────
         case 'byCategory':
             if ($year && !$month) {
-                // Annual
+                // Annual — debits/expenses only (income categories are excluded)
                 $stmt = $db->prepare("
                     SELECT c.nome, c.tipo, c.cor,
                            COUNT(t.id) AS qtd,
@@ -300,11 +300,13 @@ try {
                     FROM transacoes t
                     JOIN categorias c ON c.id = t.categoria_id
                     WHERE YEAR(t.data) = :ano
+                      AND t.tipo = 'debito'
                     GROUP BY c.id
                     ORDER BY total DESC
                 ");
                 $stmt->execute([':ano' => $year]);
             } else {
+                // Monthly — debits/expenses only (income categories are excluded)
                 $stmt = $db->prepare("
                     SELECT c.nome, c.tipo, c.cor,
                            COUNT(t.id) AS qtd,
@@ -312,6 +314,7 @@ try {
                     FROM transacoes t
                     JOIN categorias c ON c.id = t.categoria_id
                     WHERE t.mes_referencia = :mes
+                      AND t.tipo = 'debito'
                     GROUP BY c.id
                     ORDER BY total DESC
                 ");

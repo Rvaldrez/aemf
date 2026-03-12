@@ -24,6 +24,7 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f0f4f8;color:#333;min-
 /* ── NAV ── */
 nav{background:var(--primary);color:#fff;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .nav-brand{font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}
+.nav-brand-logo{height:32px;width:auto;vertical-align:middle}
 .nav-links a{color:rgba(255,255,255,.85);text-decoration:none;margin-left:20px;font-size:14px;padding:6px 10px;border-radius:6px;transition:.2s}
 .nav-links a:hover,.nav-links a.active{background:rgba(255,255,255,.15);color:#fff}
 .nav-user{font-size:13px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:12px}
@@ -129,12 +130,15 @@ tbody tr:last-child td{border-bottom:none}
 .alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
 .alert-danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
 
-/* ── Cash-flow banner ── */
-.cashflow{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:16px 24px;margin-bottom:24px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:15px;color:#333}
-.cashflow .cf-item{display:flex;flex-direction:column;align-items:center;min-width:120px}
-.cashflow .cf-label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:2px}
-.cashflow .cf-val{font-weight:700;font-size:17px}
-.cashflow .cf-arrow{font-size:20px;color:var(--border);padding:0 4px}
+/* ── Print / PDF ── */
+@media print {
+    nav,.toolbar-right,.period-toggle,#periodoMensal,#periodoAnual,.pagination,.search-bar,.filter-tipo,#alertBox,.btn-logout,a[href="upload.php"],a[href="admin.php"]{display:none!important}
+    body{background:#fff}
+    .main{padding:8px 12px;max-width:100%}
+    .panel,.card{box-shadow:none;border:1px solid #dee2e6}
+    .toolbar h2{font-size:18px}
+    .grid-2{grid-template-columns:1fr 1fr}
+}
 
 @media(max-width:600px){
     .main{padding:16px}
@@ -148,7 +152,7 @@ tbody tr:last-child td{border-bottom:none}
 
 <!-- NAV -->
 <nav>
-    <div class="nav-brand"><i class="fa-solid fa-building-columns"></i> AEMFPAR</div>
+    <div class="nav-brand"><img src="images/icone_aemf.png" alt="AEMFPAR" class="nav-brand-logo"> AEMFPAR</div>
     <div class="nav-links">
         <a href="index.php" class="active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
         <?php if ($isAdmin): ?>
@@ -184,36 +188,12 @@ tbody tr:last-child td{border-bottom:none}
             <?php if ($isAdmin): ?>
             <a href="upload.php" class="btn btn-success"><i class="fa-solid fa-upload"></i> Importar</a>
             <?php endif; ?>
+            <button class="btn btn-primary" onclick="window.print()" aria-label="Exportar relatório como PDF"><i class="fa-solid fa-file-pdf"></i> PDF</button>
         </div>
     </div>
 
     <!-- ALERT -->
     <div class="alert alert-danger" id="alertBox"></div>
-
-    <!-- CASH FLOW BANNER -->
-    <div class="cashflow" id="cashflowBanner">
-        <div class="cf-item">
-            <span class="cf-label">Saldo Inicial</span>
-            <span class="cf-val" id="cf-inicial"><div class="spinner"></div></span>
-        </div>
-        <div class="cf-arrow">+</div>
-        <div class="cf-item">
-            <span class="cf-label">Entradas</span>
-            <span class="cf-val" style="color:var(--success)" id="cf-entradas"><div class="spinner"></div></span>
-        </div>
-        <div class="cf-arrow">−</div>
-        <div class="cf-item">
-            <span class="cf-label">Saídas</span>
-            <span class="cf-val" style="color:var(--danger)" id="cf-saidas"><div class="spinner"></div></span>
-        </div>
-        <div class="cf-arrow">=</div>
-        <div class="cf-item">
-            <span class="cf-label">Saldo Final</span>
-            <span class="cf-val" id="cf-final"><div class="spinner"></div></span>
-        </div>
-        <div style="flex:1"></div>
-        <div style="font-size:12px;color:var(--muted)" id="cf-periodo"></div>
-    </div>
 
     <!-- SUMMARY CARDS -->
     <div class="cards" id="cardsArea">
@@ -264,7 +244,7 @@ tbody tr:last-child td{border-bottom:none}
         </div>
         <div class="panel">
             <div class="panel-header">
-                <h3><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Por Categoria</h3>
+                <h3><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Gastos por Categoria</h3>
                 <span id="catPeriodo" style="font-size:13px;color:var(--muted)"></span>
             </div>
             <div class="panel-body" style="padding:10px 14px">
@@ -340,6 +320,61 @@ const monthLabel = m => {
     const [y, mo] = m.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleString('pt-BR', {month: 'long', year: 'numeric'});
 };
+// Abbreviated number for pie center: 278789 → "279K", 2100000 → "2,1M"
+const fmtAbbrev = v => {
+    v = Math.abs(parseFloat(v) || 0);
+    if (v >= 1e6) return (v/1e6).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + 'M';
+    if (v >= 1e3) return Math.round(v/1e3).toLocaleString('pt-BR') + 'K';
+    return v.toLocaleString('pt-BR',{maximumFractionDigits:0});
+};
+
+// ── Custom Chart.js plugins ───────────────────────────────────────────────
+// Center label plugin for doughnut charts
+Chart.register({
+    id: 'doughnutCenter',
+    beforeDraw(chart) {
+        const text = chart.options._centerText;
+        if (!text || chart.config.type !== 'doughnut') return;
+        const {ctx, chartArea} = chart;
+        const cx = (chartArea.left + chartArea.right) / 2;
+        const cy = (chartArea.top  + chartArea.bottom) / 2;
+        ctx.save();
+        ctx.font = 'bold 18px "Segoe UI",sans-serif';
+        ctx.fillStyle = '#212529';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, cx, cy);
+        ctx.restore();
+    }
+});
+        // Percentage labels on pie slices ≥ 5 %
+Chart.register({
+    id: 'pieSliceLabels',
+    afterDatasetsDraw(chart) {
+        if (chart.config.type !== 'doughnut') return;
+        const MIN_PCT = 5; // only label slices at or above this percentage
+        const {ctx} = chart;
+        const meta = chart.getDatasetMeta(0);
+        const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+        if (!total) return;
+        meta.data.forEach((arc, i) => {
+            const val = chart.data.datasets[0].data[i];
+            const pct = Math.round(val / total * 100);
+            if (pct < MIN_PCT) return;
+            const mid = arc.startAngle + (arc.endAngle - arc.startAngle) / 2;
+            const r   = (arc.innerRadius + arc.outerRadius) / 2;
+            const x   = arc.x + Math.cos(mid) * r;
+            const y   = arc.y + Math.sin(mid) * r;
+            ctx.save();
+            ctx.font = 'bold 11px "Segoe UI",sans-serif';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pct + '%', x, y);
+            ctx.restore();
+        });
+    }
+});
 const API_DASH  = 'api/dashboard.php';
 const API_ADMIN = 'api/admin.php';
 
@@ -426,10 +461,9 @@ function loadAll() {
     loadChart();
 }
 
-// ── Summary cards + cash-flow banner ─────────────────────────────────────
+// ── Summary cards ─────────────────────────────────────────────────────────
 async function loadSummary() {
-    ['val-aportes','val-saidas','val-sinicial','val-sfinal',
-     'cf-inicial','cf-entradas','cf-saidas','cf-final'].forEach(id => {
+    ['val-aportes','val-saidas','val-sinicial','val-sfinal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = '<div class="spinner"></div>';
     });
@@ -438,10 +472,8 @@ async function loadSummary() {
         let j;
         if (periodMode === 'mensal') {
             j = await fetchJSON(`${API_DASH}?action=summary&month=${getMonth()}`);
-            document.getElementById('cf-periodo').textContent = monthLabel(getMonth());
         } else {
             j = await fetchJSON(`${API_DASH}?action=annualSummary&year=${getYear()}`);
-            document.getElementById('cf-periodo').textContent = 'Ano ' + getYear();
         }
         const d = j.data || {};
 
@@ -449,6 +481,9 @@ async function loadSummary() {
         const c  = parseFloat(d.total_creditos || 0);
         const de = parseFloat(d.total_debitos  || 0);
         const sf = parseFloat(d.saldo_final    || si + c - de);
+
+        // Date labels
+        const dateLabel = periodMode === 'mensal' ? monthLabel(getMonth()) : 'Ano ' + getYear();
 
         // Cards
         document.getElementById('val-aportes').className  = 'value';
@@ -461,21 +496,13 @@ async function loadSummary() {
 
         document.getElementById('val-sinicial').className   = 'value';
         document.getElementById('val-sinicial').textContent = fmt(si);
-        document.getElementById('sub-sinicial').textContent = 'saldo do mês anterior';
+        document.getElementById('sub-sinicial').textContent = dateLabel;
 
         const elSF = document.getElementById('val-sfinal');
         elSF.className = 'value';
         elSF.textContent = fmt(sf);
         elSF.style.color = sf >= 0 ? '#28a745' : '#dc3545';
-        document.getElementById('sub-sfinal').textContent = sf >= 0 ? 'Positivo ▲' : 'Negativo ▼';
-
-        // Cash-flow banner
-        document.getElementById('cf-inicial').textContent   = fmt(si);
-        document.getElementById('cf-entradas').textContent  = fmt(c);
-        document.getElementById('cf-saidas').textContent    = fmt(de);
-        const elCFf = document.getElementById('cf-final');
-        elCFf.textContent  = fmt(sf);
-        elCFf.style.color  = sf >= 0 ? '#28a745' : '#dc3545';
+        document.getElementById('sub-sfinal').textContent = dateLabel + (sf >= 0 ? ' ▲' : ' ▼');
 
         // Saldo row inside Movimentos Financeiros
         const saldoRow = document.getElementById('saldoRow');
@@ -628,6 +655,7 @@ async function loadCategories() {
         const labels = rows.map(r => r.nome);
         const values = rows.map(r => parseFloat(r.total));
         const colors = rows.map(r => r.cor || '#ccc');
+        const totalGastos = values.reduce((a, b) => a + b, 0);
 
         const ctx = document.getElementById('pieChart').getContext('2d');
         if (pieInstance) pieInstance.destroy();
@@ -645,6 +673,7 @@ async function loadCategories() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                _centerText: fmtAbbrev(totalGastos),
                 plugins: {
                     legend: { display: false },
                     tooltip: {
