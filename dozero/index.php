@@ -140,16 +140,24 @@ tbody tr:last-child td{border-bottom:none}
 }
 
 @media(max-width:600px){
-    .main{padding:16px}
-    .cards{grid-template-columns:1fr 1fr}
-    .card-body .value{font-size:20px}
+    .main{padding:12px}
+    .cards{grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+    .card{padding:12px 14px;gap:10px}
+    .card-icon{width:38px;height:38px;font-size:16px;border-radius:8px}
+    .card-body{min-width:0}
+    .card-body .label{font-size:11px}
+    .card-body .value{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .card-body .sub{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     nav .nav-links{display:none}
 
     /* Sticky first 3 columns (Data, Descrição, Valor) in Movimentos Financeiros */
-    .tx-table{table-layout:fixed;--col1:74px;--col2:130px;--col3:82px}
-    .tx-table th:nth-child(1),.tx-table td:nth-child(1){position:sticky;left:0;z-index:2;min-width:var(--col1);max-width:var(--col1);width:var(--col1)}
-    .tx-table th:nth-child(2),.tx-table td:nth-child(2){position:sticky;left:var(--col1);z-index:2;min-width:var(--col2);max-width:var(--col2);width:var(--col2)}
-    .tx-table th:nth-child(3),.tx-table td:nth-child(3){position:sticky;left:calc(var(--col1) + var(--col2));z-index:2;min-width:var(--col3);max-width:var(--col3);width:var(--col3);text-align:right}
+    .tx-table{table-layout:fixed;font-size:12px;--col1:90px;--col2:140px;--col3:96px}
+    .tx-table thead th,.tx-table tbody td{padding:8px 8px}
+    .tx-table th:nth-child(1),.tx-table td:nth-child(1){position:sticky;left:0;z-index:2;width:var(--col1)}
+    .tx-table th:nth-child(2),.tx-table td:nth-child(2){position:sticky;left:var(--col1);z-index:2;width:var(--col2)}
+    .tx-table th:nth-child(3),.tx-table td:nth-child(3){position:sticky;left:calc(var(--col1) + var(--col2));z-index:2;width:var(--col3);text-align:right}
+    .tx-table th:nth-child(4),.tx-table td:nth-child(4){width:130px}
+    .tx-table th:nth-child(5),.tx-table td:nth-child(5){width:110px}
     .tx-table thead th:nth-child(1),.tx-table thead th:nth-child(2),.tx-table thead th:nth-child(3){background:#f8f9fa}
     .tx-table tbody tr td:nth-child(1),.tx-table tbody tr td:nth-child(2),.tx-table tbody tr td:nth-child(3){background:#fff}
     .tx-table tbody tr:hover td:nth-child(1),.tx-table tbody tr:hover td:nth-child(2),.tx-table tbody tr:hover td:nth-child(3){background:#fafbfc}
@@ -314,6 +322,17 @@ tbody tr:last-child td{border-bottom:none}
         </div>
     </div>
 
+<!-- Transaction Detail Modal -->
+<div id="txModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999;align-items:center;justify-content:center;padding:16px" onclick="closeTxModal()">
+    <div style="background:#fff;border-radius:14px;padding:24px 20px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;border-bottom:1px solid #dee2e6;padding-bottom:12px">
+            <h3 style="font-size:16px;color:var(--primary);font-weight:700"><i class="fa-solid fa-receipt" style="color:var(--accent)"></i> Detalhes do Lançamento</h3>
+            <button onclick="closeTxModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#adb5bd;line-height:1">&times;</button>
+        </div>
+        <dl style="display:grid;grid-template-columns:90px 1fr;gap:8px 12px;font-size:14px" id="txModalContent"></dl>
+    </div>
+</div>
+
 </div><!-- /main -->
 
 <script>
@@ -346,7 +365,7 @@ Chart.register({
         const cx = (chartArea.left + chartArea.right) / 2;
         const cy = (chartArea.top  + chartArea.bottom) / 2;
         ctx.save();
-        ctx.font = 'bold 18px "Segoe UI",sans-serif';
+        ctx.font = 'bold 26px "Segoe UI",sans-serif';
         ctx.fillStyle = '#212529';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -391,6 +410,7 @@ let txPage        = 1;
 let txTotalPages  = 1;
 let searchTimer   = null;
 let periodMode    = 'mensal'; // 'mensal' | 'anual'
+let txDataMap     = {}; // populated each time rows are rendered
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Period control
@@ -557,7 +577,9 @@ async function loadTransactions() {
         if (rows.length === 0) {
             body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#adb5bd"><i class="fa-solid fa-inbox"></i> Nenhuma transação encontrada.</td></tr>';
         } else {
-            body.innerHTML = rows.map(t => {
+            txDataMap = {};
+            body.innerHTML = rows.map((t, i) => {
+                txDataMap[i] = t;
                 const v   = parseFloat(t.valor);
                 const cls = t.tipo === 'credito' ? 'valor-credito' : 'valor-debito';
                 const sig = t.tipo === 'credito' ? '+' : '-';
@@ -579,7 +601,7 @@ async function loadTransactions() {
                     : '<span class="text-muted">—</span>';
 
                 const mes = t.mes_referencia ? `<br><span style="font-size:11px;color:var(--muted)">${t.mes_referencia}</span>` : '';
-                return `<tr>
+                return `<tr onclick="openTxModal(${i})" onkeydown="if(event.key==='Enter'||event.key===' ')openTxModal(${i})" tabindex="0" style="cursor:pointer">
                     <td style="white-space:nowrap">${fmtDate(t.data)}${periodMode==='anual'?mes:''}</td>
                     <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descEl}</td>
                     <td style="text-align:right" class="${cls}">${sig} ${fmt(v)}</td>
@@ -762,12 +784,42 @@ function renderChart(labels, datasets) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') }
+                    title: { display: true, text: 'R$ mil', font: { size: 11 }, color: '#6c757d' },
+                    ticks: { callback: v => (v / 1000).toLocaleString('pt-BR', {maximumFractionDigits: 1}) }
+                },
+                x: {
+                    ticks: { maxRotation: 45, minRotation: 0 }
                 }
             }
         }
     });
 }
+
+function openTxModal(i) {
+    const t = txDataMap[i];
+    if (!t) return;
+    const v   = parseFloat(t.valor);
+    const cls = t.tipo === 'credito' ? 'color:#28a745' : 'color:#dc3545';
+    const sig = t.tipo === 'credito' ? '+' : '-';
+    const fields = [
+        ['Data',      fmtDate(t.data)],
+        ['Tipo',      t.tipo === 'credito' ? 'Crédito' : 'Débito'],
+        ['Valor',     `<strong style="${cls}">${sig} ${fmt(v)}</strong>`],
+        ['Descrição', esc(t.descricao || '—')],
+    ];
+    if (t.descricao_extrato && t.descricao_extrato !== t.descricao) {
+        fields.push(['Extrato', esc(t.descricao_extrato)]);
+    }
+    fields.push(['Observação', esc(t.ref_observacoes || '—')]);
+    fields.push(['Categoria',  t.categoria ? esc(t.categoria) : '—']);
+    if (t.mes_referencia) fields.push(['Mês Ref.', esc(t.mes_referencia)]);
+    document.getElementById('txModalContent').innerHTML = fields.map(([label, val]) =>
+        `<dt style="font-weight:600;color:#6c757d;white-space:nowrap">${label}</dt><dd style="color:#212529;word-break:break-word">${val}</dd>`
+    ).join('');
+    document.getElementById('txModal').style.display = 'flex';
+}
+function closeTxModal() { document.getElementById('txModal').style.display = 'none'; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTxModal(); });
 
 // ── Init ──────────────────────────────────────────────────────────────────
 init();
