@@ -24,7 +24,7 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f0f4f8;color:#333;min-
 /* ── NAV ── */
 nav{background:var(--primary);color:#fff;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .nav-brand{font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px}
-.nav-brand-logo{height:20px;width:auto;vertical-align:middle}
+.nav-brand-logo{height:24px;width:24px;object-fit:contain;display:inline-block;vertical-align:middle;flex-shrink:0}
 .nav-links a{color:rgba(255,255,255,.85);text-decoration:none;margin-left:20px;font-size:14px;padding:6px 10px;border-radius:6px;transition:.2s}
 .nav-links a:hover,.nav-links a.active{background:rgba(255,255,255,.15);color:#fff}
 .nav-user{font-size:13px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:12px}
@@ -38,7 +38,7 @@ nav{background:var(--primary);color:#fff;padding:0 24px;display:flex;align-items
 .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
 .toolbar h2{font-size:22px;color:var(--primary);font-weight:700}
 .toolbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-select,input[type=month]{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:#495057;outline:none;background:#fff;cursor:pointer}
+select,input[type=month]{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:#495057;outline:none;background:#fff;cursor:pointer;min-width:160px}
 select:focus,input[type=month]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,125,210,.12)}
 .btn{padding:8px 18px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.2s;text-decoration:none}
 .btn-primary{background:var(--accent);color:#fff}
@@ -141,6 +141,12 @@ tbody tr:last-child td{border-bottom:none}
 
 @media(max-width:600px){
     .main{padding:12px}
+    .toolbar{flex-direction:column;align-items:flex-start}
+    .toolbar-right{width:100%;flex-wrap:wrap}
+    .period-toggle{width:100%}
+    .period-toggle button{flex:1;text-align:center}
+    #periodoMensal,#periodoAnual{width:100%}
+    #periodoMensal input,#periodoAnual select{width:100%;min-width:0;box-sizing:border-box}
     .cards{grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
     .card{padding:12px 14px;gap:10px}
     .card-icon{width:38px;height:38px;font-size:16px;border-radius:8px}
@@ -204,7 +210,6 @@ tbody tr:last-child td{border-bottom:none}
             <?php if ($isAdmin): ?>
             <a href="upload.php" class="btn btn-success"><i class="fa-solid fa-upload"></i> Importar</a>
             <?php endif; ?>
-            <button class="btn btn-primary" onclick="window.print()" aria-label="Exportar relatório como PDF"><i class="fa-solid fa-file-pdf"></i> PDF</button>
         </div>
     </div>
 
@@ -669,7 +674,7 @@ async function loadCategories() {
         if (periodMode === 'mensal') {
             url = `${API_DASH}?action=byCategory&month=${getMonth()}`;
         } else {
-            url = `${API_DASH}?action=byCategory&year=${getYear()}`;
+            url = `${API_DASH}?action=byCategory&year=${getYear()}&month=`;
         }
         const j = await fetchJSON(url);
         const rows = j.data || [];

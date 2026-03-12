@@ -11,7 +11,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a3c5e
 .card{background:#fff;border-radius:16px;padding:48px 40px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .logo{text-align:center;margin-bottom:32px}
 .logo h1{color:#1a3c5e;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px}
-.logo-icon{height:28px;width:auto;vertical-align:middle}
+.logo-icon{height:32px;width:32px;object-fit:contain;display:inline-block;vertical-align:middle;flex-shrink:0}
 .logo p{color:#6c757d;font-size:14px;margin-top:4px}
 .form-group{margin-bottom:20px}
 label{display:block;font-size:14px;color:#495057;margin-bottom:6px;font-weight:500}
@@ -22,6 +22,11 @@ input:focus{border-color:#2d7dd2;box-shadow:0 0 0 3px rgba(45,125,210,.15)}
 .btn-login{width:100%;padding:14px;background:linear-gradient(135deg,#1a3c5e,#2d7dd2);color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:opacity .2s;margin-top:8px}
 .btn-login:hover{opacity:.9}
 .erro{background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;padding:10px 14px;font-size:14px;margin-bottom:20px;text-align:center}
+@media(max-width:480px){
+    .card{padding:32px 20px;border-radius:12px}
+    .logo h1{font-size:22px}
+    .logo-icon{height:28px;width:28px}
+}
 </style>
 </head>
 <body>
