@@ -97,6 +97,7 @@ thead th{background:#f8f9fa;padding:12px 14px;text-align:left;font-weight:600;co
 tbody td{padding:11px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
 tbody tr:hover{background:#fafbfc}
 tbody tr:last-child td{border-bottom:none}
+.tx-table td:nth-child(2){max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
 .badge-credito{background:#e8f5e9;color:#2e7d32}
 .badge-debito{background:#fdecea;color:#c62828}
@@ -145,6 +146,15 @@ tbody tr:last-child td{border-bottom:none}
     .cards{grid-template-columns:1fr 1fr}
     .card-body .value{font-size:20px}
     nav .nav-links{display:none}
+
+    /* Sticky first 3 columns (Data, Descrição, Valor) in Movimentos Financeiros */
+    .tx-table{table-layout:fixed;--col1:74px;--col2:130px;--col3:82px}
+    .tx-table th:nth-child(1),.tx-table td:nth-child(1){position:sticky;left:0;z-index:2;min-width:var(--col1);max-width:var(--col1);width:var(--col1)}
+    .tx-table th:nth-child(2),.tx-table td:nth-child(2){position:sticky;left:var(--col1);z-index:2;min-width:var(--col2);max-width:var(--col2);width:var(--col2)}
+    .tx-table th:nth-child(3),.tx-table td:nth-child(3){position:sticky;left:calc(var(--col1) + var(--col2));z-index:2;min-width:var(--col3);max-width:var(--col3);width:var(--col3);text-align:right}
+    .tx-table thead th:nth-child(1),.tx-table thead th:nth-child(2),.tx-table thead th:nth-child(3){background:#f8f9fa}
+    .tx-table tbody tr td:nth-child(1),.tx-table tbody tr td:nth-child(2),.tx-table tbody tr td:nth-child(3){background:#fff}
+    .tx-table tbody tr:hover td:nth-child(1),.tx-table tbody tr:hover td:nth-child(2),.tx-table tbody tr:hover td:nth-child(3){background:#fafbfc}
 }
 </style>
 </head>
@@ -283,15 +293,15 @@ tbody tr:last-child td{border-bottom:none}
             </div>
 
             <div style="overflow-x:auto">
-                <table>
+                <table class="tx-table">
                     <thead>
                         <tr>
                             <th>Data</th>
                             <th>Descrição</th>
-                            <th>Categoria</th>
-                            <th>Observação</th>
                             <th style="text-align:right">Valor (R$)</th>
                             <th>Tipo</th>
+                            <th>Observação</th>
+                            <th>Categoria</th>
                         </tr>
                     </thead>
                     <tbody id="txBody">
@@ -574,11 +584,11 @@ async function loadTransactions() {
                 const mes = t.mes_referencia ? `<br><span style="font-size:11px;color:var(--muted)">${t.mes_referencia}</span>` : '';
                 return `<tr>
                     <td style="white-space:nowrap">${fmtDate(t.data)}${periodMode==='anual'?mes:''}</td>
-                    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descEl}</td>
-                    <td>${cat}</td>
-                    <td>${obs}</td>
+                    <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descEl}</td>
                     <td style="text-align:right" class="${cls}">${sig} ${fmt(v)}</td>
                     <td><span class="badge badge-${esc(t.tipo)}">${t.tipo === 'credito' ? 'Crédito' : 'Débito'}</span></td>
+                    <td>${obs}</td>
+                    <td>${cat}</td>
                 </tr>`;
             }).join('');
         }
