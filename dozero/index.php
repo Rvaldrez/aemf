@@ -99,8 +99,6 @@ tbody tr:hover{background:#fafbfc}
 tbody tr:last-child td{border-bottom:none}
 .tx-table td:nth-child(2){max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
-.badge-credito{background:#e8f5e9;color:#2e7d32}
-.badge-debito{background:#fdecea;color:#c62828}
 .badge-aemf{background:#e3f2fd;color:#1565c0}
 .badge-pf{background:#fff3e0;color:#e65100}
 .badge-receita{background:#e8f5e9;color:#2e7d32}
@@ -299,13 +297,12 @@ tbody tr:last-child td{border-bottom:none}
                             <th>Data</th>
                             <th>Descrição</th>
                             <th style="text-align:right">Valor (R$)</th>
-                            <th>Tipo</th>
                             <th>Observação</th>
                             <th>Categoria</th>
                         </tr>
                     </thead>
                     <tbody id="txBody">
-                        <tr class="loading-row"><td colspan="6"><div class="spinner"></div> Carregando…</td></tr>
+                        <tr class="loading-row"><td colspan="5"><div class="spinner"></div> Carregando…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -533,7 +530,7 @@ async function loadSummary() {
 // ── Transactions table ────────────────────────────────────────────────────
 async function loadTransactions() {
     const body = document.getElementById('txBody');
-    body.innerHTML = '<tr class="loading-row"><td colspan="6"><div class="spinner"></div> Carregando…</td></tr>';
+    body.innerHTML = '<tr class="loading-row"><td colspan="5"><div class="spinner"></div> Carregando…</td></tr>';
     document.getElementById('txCount').textContent = '';
 
     const search = encodeURIComponent(document.getElementById('searchInput').value.trim());
@@ -558,7 +555,7 @@ async function loadTransactions() {
             `Exibindo ${rows.length} de ${j.total} — Página ${j.page} de ${Math.max(1, j.pages)}`;
 
         if (rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#adb5bd"><i class="fa-solid fa-inbox"></i> Nenhuma transação encontrada.</td></tr>';
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#adb5bd"><i class="fa-solid fa-inbox"></i> Nenhuma transação encontrada.</td></tr>';
         } else {
             body.innerHTML = rows.map(t => {
                 const v   = parseFloat(t.valor);
@@ -586,7 +583,6 @@ async function loadTransactions() {
                     <td style="white-space:nowrap">${fmtDate(t.data)}${periodMode==='anual'?mes:''}</td>
                     <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descEl}</td>
                     <td style="text-align:right" class="${cls}">${sig} ${fmt(v)}</td>
-                    <td><span class="badge badge-${esc(t.tipo)}">${t.tipo === 'credito' ? 'Crédito' : 'Débito'}</span></td>
                     <td>${obs}</td>
                     <td>${cat}</td>
                 </tr>`;
@@ -595,7 +591,7 @@ async function loadTransactions() {
 
         renderPagination(j.page, j.pages, j.total);
     } catch (e) {
-        body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#dc3545">Erro: ${e.message}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#dc3545">Erro: ${e.message}</td></tr>`;
         showError('Erro ao carregar transações: ' + e.message);
     }
 }
