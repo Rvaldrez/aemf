@@ -269,10 +269,11 @@ try {
             $map = [];
             foreach ($rows as $r) { $map[$r['mes']] = $r; }
 
+            $mesesPtBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
             $meses = $creditos = $debitos = $saldos = [];
             for ($mm = 1; $mm <= 12; $mm++) {
                 $key = $year . '-' . str_pad($mm, 2, '0', STR_PAD_LEFT);
-                $meses[]   = date('M', mktime(0, 0, 0, $mm, 1));
+                $meses[]   = $mesesPtBR[$mm - 1];
                 $creditos[] = (float)($map[$key]['creditos'] ?? 0);
                 $debitos[]  = (float)($map[$key]['debitos']  ?? 0);
                 $saldos[]   = isset($smMap[$key]) ? (float)$smMap[$key]['saldo_final'] : null;

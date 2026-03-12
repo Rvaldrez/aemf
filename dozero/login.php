@@ -11,7 +11,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a3c5e
 .card{background:#fff;border-radius:16px;padding:48px 40px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .logo{text-align:center;margin-bottom:32px}
 .logo h1{color:#1a3c5e;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px}
-.logo-icon{height:40px;width:auto}
+.logo-icon{height:28px;width:auto;vertical-align:middle}
 .logo p{color:#6c757d;font-size:14px;margin-top:4px}
 .form-group{margin-bottom:20px}
 label{display:block;font-size:14px;color:#495057;margin-bottom:6px;font-weight:500}
@@ -27,7 +27,7 @@ input:focus{border-color:#2d7dd2;box-shadow:0 0 0 3px rgba(45,125,210,.15)}
 <body>
 <div class="card">
     <div class="logo">
-        <h1><img src="images/icone_aemf.png" alt="AEMFPAR" class="logo-icon"> AEMFPAR</h1>
+        <h1><img src="images/azul_aemf.png" alt="AEMFPAR" class="logo-icon"> AEMFPAR</h1>
         <p>Sistema Financeiro</p>
     </div>
     <?php if (!empty($_GET['erro'])): ?>

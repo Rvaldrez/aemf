@@ -23,8 +23,8 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f0f4f8;color:#333;min-
 
 /* ── NAV ── */
 nav{background:var(--primary);color:#fff;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-.nav-brand{font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}
-.nav-brand-logo{height:32px;width:auto;vertical-align:middle}
+.nav-brand{font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px}
+.nav-brand-logo{height:20px;width:auto;vertical-align:middle}
 .nav-links a{color:rgba(255,255,255,.85);text-decoration:none;margin-left:20px;font-size:14px;padding:6px 10px;border-radius:6px;transition:.2s}
 .nav-links a:hover,.nav-links a.active{background:rgba(255,255,255,.15);color:#fff}
 .nav-user{font-size:13px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:12px}
@@ -152,7 +152,7 @@ tbody tr:last-child td{border-bottom:none}
 
 <!-- NAV -->
 <nav>
-    <div class="nav-brand"><img src="images/icone_aemf.png" alt="AEMFPAR" class="nav-brand-logo"> AEMFPAR</div>
+    <div class="nav-brand"><img src="images/branco_aemf.png" alt="AEMFPAR" class="nav-brand-logo"> AEMFPAR</div>
     <div class="nav-links">
         <a href="index.php" class="active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
         <?php if ($isAdmin): ?>

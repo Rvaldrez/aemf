@@ -61,6 +61,7 @@ tbody tr:last-child td{border-bottom:none}
 .badge-aemf{background:#e3f2fd;color:#1565c0}
 .badge-pf{background:#fff3e0;color:#e65100}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.cat-color-pick{width:30px;height:30px;padding:2px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:#fff;vertical-align:middle}
 .text-muted{color:#adb5bd;font-style:italic}
 
 /* Form */
@@ -399,7 +400,7 @@ async function loadCats(){
         const tipoBadge = c.tipo === 'receita' ? 'badge-receita' : c.tipo === 'despesa_aemf' ? 'badge-aemf' : 'badge-pf';
         const tipoLabel = {receita:'Receita',despesa_aemf:'Despesa AEMF',despesa_pf:'Despesa PF'}[c.tipo] || c.tipo;
         return `<tr>
-            <td><span class="dot" style="background:${esc(c.cor||'#ccc')}"></span></td>
+            <td><input type="color" class="cat-color-pick" value="${esc(c.cor||'#17a2b8')}" title="Clique para alterar a cor" onchange="updateCatColor(${esc(String(c.id))}, this.value)"></td>
             <td>${esc(c.nome)}</td>
             <td><span class="badge ${tipoBadge}">${tipoLabel}</span></td>
             <td>${esc(c.grupo||'')}</td>
@@ -466,6 +467,23 @@ async function delCat(id){
     const j = await api('action=deleteCategoria&id=' + id);
     if(j.success){ flash('catAlert','Categoria excluída.','success'); loadCats(); }
     else { flash('catErr', j.error || 'Erro.', 'danger'); }
+}
+
+async function updateCatColor(id, cor){
+    // Validate hex color format before sending to API
+    if(!/^#[0-9A-Fa-f]{6}$/.test(cor)) return;
+    const c = allCats.find(x => x.id == id);
+    if(!c) return;
+    const j = await api('action=updateCategoria', {id, nome:c.nome, tipo:c.tipo, grupo:c.grupo||'', cor});
+    if(j.success){
+        c.cor = cor;
+        flash('catAlert','Cor atualizada!','success');
+        // also sync the edit form color if this category is being edited
+        if(document.getElementById('catId').value === String(id))
+            document.getElementById('catCor').value = cor;
+    } else {
+        flash('catErr', j.error || 'Erro ao salvar cor.', 'danger');
+    }
 }
 
 function resetCatForm(){
