@@ -1,0 +1,6 @@
+# Impede listagem de diretórios e execução de scripts
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|php3|php4|php5|phar|shtml)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
