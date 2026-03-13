@@ -32,7 +32,7 @@ input:focus{border-color:#2d7dd2;box-shadow:0 0 0 3px rgba(45,125,210,.15)}
 <body>
 <div class="card">
     <div class="logo">
-        <h1><img src="images/azul_aemf.png" alt="AEMFPAR" class="logo-icon"> AEMFPAR</h1>
+        <h1><img src="images/azul_aemf.svg" alt="AEMFPAR" class="logo-icon"> AEMFPAR</h1>
         <p>Sistema Financeiro</p>
     </div>
     <?php if (!empty($_GET['erro'])): ?>

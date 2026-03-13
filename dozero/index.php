@@ -181,7 +181,7 @@ tbody tr:last-child td{border-bottom:none}
 
 <!-- NAV -->
 <nav>
-    <div class="nav-brand"><img src="images/branco_aemf.png" alt="AEMFPAR" class="nav-brand-logo"> AEMFPAR</div>
+    <div class="nav-brand"><img src="images/branco_aemf.svg" alt="AEMFPAR" class="nav-brand-logo"> AEMFPAR</div>
     <div class="nav-links">
         <a href="index.php" class="active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
         <?php if ($isAdmin): ?>
