@@ -347,8 +347,8 @@ tbody tr:last-child td{border-bottom:none}
 
 </div><!-- /main -->
 
-<!-- Movimentos Financeiros — hint popup (shown once, 800 ms after page load) -->
-<div id="txHintModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;align-items:center;justify-content:center;padding:16px">
+<!-- Movimentos Financeiros — hint popup (shown once on scroll-in or after 1.5 s) -->
+<div id="txHintModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;align-items:center;justify-content:center;padding:16px" onclick="closeTxHintModal()">
     <div style="background:#fff;border-radius:14px;padding:26px 22px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
             <span style="width:38px;height:38px;min-width:38px;border-radius:50%;background:#eef4ff;display:flex;align-items:center;justify-content:center">
@@ -859,21 +859,44 @@ function openTxModal(i) {
 function closeTxModal() { document.getElementById('txModal').style.display = 'none'; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTxModal(); closeTxHintModal(); } });
 
-// ── Movimentos Financeiros hint popup (shown once, 800 ms after page load) ──
+// ── Movimentos Financeiros hint popup ─────────────────────────────────────
+// Key renamed to _v2 so returning users who had the old key set see it again
+const TX_HINT_KEY = 'txHintSeen_v2';
+let txHintShown = false;
+
+function showTxHintModal() {
+    if (txHintShown) return;
+    try { if (localStorage.getItem(TX_HINT_KEY)) return; } catch(_){}
+    txHintShown = true;
+    const modal = document.getElementById('txHintModal');
+    if (modal) modal.style.display = 'flex';
+}
 function closeTxHintModal() {
+    txHintShown = true;
     const modal = document.getElementById('txHintModal');
     if (modal) modal.style.display = 'none';
     if (document.getElementById('txHintNoShow').checked) {
-        try { localStorage.setItem('txHintSeen','1'); } catch(_){}
+        try { localStorage.setItem(TX_HINT_KEY, '1'); } catch(_){}
     }
 }
 (function initHintObserver() {
-    try { if (localStorage.getItem('txHintSeen')) return; } catch(_){}
-    setTimeout(function() {
-        try { if (localStorage.getItem('txHintSeen')) return; } catch(_){}
-        const modal = document.getElementById('txHintModal');
-        if (modal) modal.style.display = 'flex';
-    }, 800);
+    try { if (localStorage.getItem(TX_HINT_KEY)) return; } catch(_){}
+    // Fallback: show 1.5 s after page load (covers fast readers who don't scroll)
+    const t = setTimeout(showTxHintModal, 1500);
+    // Primary: show as soon as the Movimentos Financeiros panel enters the viewport
+    if (window.IntersectionObserver) {
+        const txBody = document.getElementById('txBody');
+        const panel = txBody && txBody.closest('.panel');
+        if (panel) {
+            new IntersectionObserver(function(entries, obs) {
+                if (entries[0].isIntersecting) {
+                    obs.disconnect();
+                    clearTimeout(t);
+                    showTxHintModal();
+                }
+            }, { threshold: 0 }).observe(panel);
+        }
+    }
 })();
 
 // ── Init ──────────────────────────────────────────────────────────────────
