@@ -347,7 +347,7 @@ tbody tr:last-child td{border-bottom:none}
 
 </div><!-- /main -->
 
-<!-- Movimentos Financeiros — hint popup (shown once on first scroll into view) -->
+<!-- Movimentos Financeiros — hint popup (shown once, 800 ms after page load) -->
 <div id="txHintModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;align-items:center;justify-content:center;padding:16px">
     <div style="background:#fff;border-radius:14px;padding:26px 22px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -859,7 +859,7 @@ function openTxModal(i) {
 function closeTxModal() { document.getElementById('txModal').style.display = 'none'; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTxModal(); closeTxHintModal(); } });
 
-// ── Movimentos Financeiros hint popup ─────────────────────────────────────
+// ── Movimentos Financeiros hint popup (shown once, 800 ms after page load) ──
 function closeTxHintModal() {
     const modal = document.getElementById('txHintModal');
     if (modal) modal.style.display = 'none';
@@ -869,16 +869,11 @@ function closeTxHintModal() {
 }
 (function initHintObserver() {
     try { if (localStorage.getItem('txHintSeen')) return; } catch(_){}
-    const txBody = document.getElementById('txBody');
-    const panel  = txBody && txBody.closest('.panel');
-    if (!panel || !window.IntersectionObserver) return;
-    const obs = new IntersectionObserver(function(entries) {
-        if (entries[0].isIntersecting) {
-            obs.disconnect();
-            document.getElementById('txHintModal').style.display = 'flex';
-        }
-    }, { threshold: 0.2 });
-    obs.observe(panel);
+    setTimeout(function() {
+        try { if (localStorage.getItem('txHintSeen')) return; } catch(_){}
+        const modal = document.getElementById('txHintModal');
+        if (modal) modal.style.display = 'flex';
+    }, 800);
 })();
 
 // ── Init ──────────────────────────────────────────────────────────────────
