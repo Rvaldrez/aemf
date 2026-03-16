@@ -311,11 +311,6 @@ tbody tr:last-child td{border-bottom:none}
             </div>
 
             <div style="overflow-x:auto">
-                <!-- hint shown until user clicks a row for the first time -->
-                <div id="txClickHint" style="display:flex;align-items:center;gap:7px;font-size:12px;color:#9099a8;padding:6px 2px 10px 2px;user-select:none">
-                    <i class="fa-regular fa-hand-pointer" style="font-size:13px;opacity:.7"></i>
-                    <span>Toque em qualquer linha para ver os detalhes do lançamento</span>
-                </div>
                 <table class="tx-table">
                     <thead>
                         <tr>
@@ -351,6 +346,26 @@ tbody tr:last-child td{border-bottom:none}
 </div>
 
 </div><!-- /main -->
+
+<!-- Movimentos Financeiros — hint popup (shown once on first scroll into view) -->
+<div id="txHintModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:14px;padding:26px 22px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span style="width:38px;height:38px;min-width:38px;border-radius:50%;background:#eef4ff;display:flex;align-items:center;justify-content:center">
+                <i class="fa-regular fa-hand-pointer" style="color:#2d7dd2;font-size:17px"></i>
+            </span>
+            <strong style="color:#1a3c5e;font-size:16px">Dica</strong>
+        </div>
+        <p style="font-size:14px;color:#495057;line-height:1.6;margin-bottom:18px">
+            Toque em qualquer linha da tabela <strong>Movimentos Financeiros</strong> para visualizar todos os detalhes do lançamento.
+        </p>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:#6c757d;margin-bottom:18px;cursor:pointer;user-select:none">
+            <input type="checkbox" id="txHintNoShow" style="width:16px;height:16px;cursor:pointer;accent-color:#2d7dd2">
+            Não exibir esta mensagem novamente
+        </label>
+        <button onclick="closeTxHintModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,#1a3c5e,#2d7dd2);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">OK</button>
+    </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
@@ -815,10 +830,6 @@ function renderChart(labels, datasets) {
 function openTxModal(i) {
     const t = txDataMap[i];
     if (!t) return;
-    // dismiss hint permanently after first click
-    const hint = document.getElementById('txClickHint');
-    // localStorage may be unavailable in private-browsing mode — ignore errors silently
-    if (hint) { hint.style.display = 'none'; try { localStorage.setItem('txHintSeen','1'); } catch(_){} }
     const v   = parseFloat(t.valor);
     const cls = t.tipo === 'credito' ? 'color:#28a745' : 'color:#dc3545';
     const sig = t.tipo === 'credito' ? '+' : '-';
@@ -846,11 +857,31 @@ function openTxModal(i) {
     document.getElementById('txModal').style.display = 'flex';
 }
 function closeTxModal() { document.getElementById('txModal').style.display = 'none'; }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTxModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTxModal(); closeTxHintModal(); } });
+
+// ── Movimentos Financeiros hint popup ─────────────────────────────────────
+function closeTxHintModal() {
+    const modal = document.getElementById('txHintModal');
+    if (modal) modal.style.display = 'none';
+    if (document.getElementById('txHintNoShow').checked) {
+        try { localStorage.setItem('txHintSeen','1'); } catch(_){}
+    }
+}
+(function initHintObserver() {
+    try { if (localStorage.getItem('txHintSeen')) return; } catch(_){}
+    const txBody = document.getElementById('txBody');
+    const panel  = txBody && txBody.closest('.panel');
+    if (!panel || !window.IntersectionObserver) return;
+    const obs = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+            obs.disconnect();
+            document.getElementById('txHintModal').style.display = 'flex';
+        }
+    }, { threshold: 0.2 });
+    obs.observe(panel);
+})();
 
 // ── Init ──────────────────────────────────────────────────────────────────
-// hide click hint if user has seen it before (localStorage unavailable in private-browsing — ignore)
-try { if (localStorage.getItem('txHintSeen')) { const h = document.getElementById('txClickHint'); if(h) h.style.display='none'; } } catch(_){}
 init();
 </script>
 </body>

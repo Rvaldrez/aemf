@@ -54,6 +54,11 @@ input:focus{border-color:#2d7dd2;box-shadow:0 0 0 3px rgba(45,125,210,.15)}
             </div>
         </div>
         <button type="submit" class="btn-login"><i class="fa-solid fa-right-to-bracket"></i> Entrar</button>
+        <p style="text-align:center;margin-top:16px;font-size:13px">
+            <a href="recuperar_senha.php" style="color:#2d7dd2;text-decoration:none;font-weight:500">
+                <i class="fa-solid fa-lock-open" style="margin-right:4px"></i>Esqueci minha senha
+            </a>
+        </p>
     </form>
 </div>
 <script>

@@ -64,6 +64,26 @@ function setupSchema(PDO $db): void {
             ")->execute([':u1' => 'admin', ':p1' => $hashAdmin, ':u2' => 'antonio', ':p2' => $hashUser]);
         }
 
+        // Add email column to usuarios if absent (migration guard)
+        $colsEmail = $db->query("SHOW COLUMNS FROM usuarios LIKE 'email'")->fetchAll();
+        if (empty($colsEmail)) {
+            $db->exec("ALTER TABLE usuarios ADD COLUMN email VARCHAR(180) DEFAULT NULL AFTER username");
+        }
+
+        // ── password_resets ───────────────────────────────────────────────
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS password_resets (
+                id         INT          AUTO_INCREMENT PRIMARY KEY,
+                usuario_id INT          NOT NULL,
+                token      VARCHAR(64)  NOT NULL UNIQUE,
+                expires_at DATETIME     NOT NULL,
+                usado      TINYINT(1)   DEFAULT 0,
+                created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                INDEX idx_token (token)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
         // ── categorias ────────────────────────────────────────────────────
         $db->exec("
             CREATE TABLE IF NOT EXISTS categorias (
