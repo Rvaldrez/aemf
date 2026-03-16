@@ -347,7 +347,7 @@ tbody tr:last-child td{border-bottom:none}
 
 </div><!-- /main -->
 
-<!-- Movimentos Financeiros — hint popup (shown once on scroll-in or after 1.5 s) -->
+<!-- Movimentos Financeiros — hint popup (shown once when user scrolls to the section) -->
 <div id="txHintModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;align-items:center;justify-content:center;padding:16px" onclick="closeTxHintModal()">
     <div style="background:#fff;border-radius:14px;padding:26px 22px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -881,22 +881,21 @@ function closeTxHintModal() {
 }
 (function initHintObserver() {
     try { if (localStorage.getItem(TX_HINT_KEY)) return; } catch(_){}
-    // Fallback: show 1.5 s after page load (covers fast readers who don't scroll)
-    const t = setTimeout(showTxHintModal, 1500);
-    // Primary: show as soon as the Movimentos Financeiros panel enters the viewport
-    if (window.IntersectionObserver) {
-        const txBody = document.getElementById('txBody');
-        const panel = txBody && txBody.closest('.panel');
-        if (panel) {
-            new IntersectionObserver(function(entries, obs) {
-                if (entries[0].isIntersecting) {
-                    obs.disconnect();
-                    clearTimeout(t);
-                    showTxHintModal();
-                }
-            }, { threshold: 0 }).observe(panel);
-        }
+    if (!window.IntersectionObserver) return;
+    const txBody = document.getElementById('txBody');
+    const panel = txBody && txBody.closest('.panel');
+    if (!panel) return;
+    // Only activate the observer after the user has scrolled at least once,
+    // so the popup never fires on page load — only when they reach the section.
+    function setupObserver() {
+        new IntersectionObserver(function(entries, obs) {
+            if (entries[0].isIntersecting) {
+                obs.disconnect();
+                showTxHintModal();
+            }
+        }, { threshold: 0 }).observe(panel);
     }
+    window.addEventListener('scroll', setupObserver, { passive: true, once: true });
 })();
 
 // ── Init ──────────────────────────────────────────────────────────────────
